@@ -75,6 +75,7 @@ export interface Account {
     accountType: 'SAVINGS' | 'CHECKING';
     initialDeposit: number;
     transactionPin: string;
+    confirmPin: string; 
   }
   
   export interface LoginRequest {

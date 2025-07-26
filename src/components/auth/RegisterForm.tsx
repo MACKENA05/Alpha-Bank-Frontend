@@ -11,7 +11,7 @@ interface RegisterFormProps {
 }
 
 export const RegisterForm: React.FC<RegisterFormProps> = ({ isOpen, onClose, onSuccess }) => {
-  const [formData, setFormData] = useState({
+  const initialFormData = {
     email: '',
     password: '',
     firstName: '',
@@ -20,8 +20,11 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ isOpen, onClose, onS
     address: '',
     accountType: 'SAVINGS' as 'SAVINGS' | 'CHECKING',
     initialDeposit: '',
-    transactionPin: ['', '', '', '']
-  });
+    transactionPin: ['', '', '', ''],
+    confirmPin: ['', '', '', '']
+  };
+
+  const [formData, setFormData] = useState(initialFormData);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -33,17 +36,34 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ isOpen, onClose, onS
 
     try {
       const transactionPin = formData.transactionPin.join('');
+      const confirmPin = formData.confirmPin.join('');
+      
       if (transactionPin.length !== 4) {
         throw new Error('Transaction PIN must be 4 digits');
+      }
+      
+      if (confirmPin.length !== 4) {
+        throw new Error('PIN confirmation must be 4 digits');
+      }
+      
+      if (transactionPin !== confirmPin) {
+        throw new Error('PIN and confirmation PIN do not match');
       }
 
       const registrationData = {
         ...formData,
         initialDeposit: parseFloat(formData.initialDeposit),
         transactionPin,
+        confirmPin, // Include confirmPin in the request
       };
 
       await authApi.register(registrationData);
+      
+      // Clear form after successful submission
+      setFormData(initialFormData);
+      setShowPassword(false);
+      setError('');
+      
       onSuccess();
       onClose();
     } catch (error: any) {
@@ -131,6 +151,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ isOpen, onClose, onS
             </div>
 
             <div className="relative">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <Lock size={16} className="inline mr-2 text-emerald-700" />
+                Password
+              </label>
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={formData.password}
@@ -189,13 +213,14 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ isOpen, onClose, onS
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Initial Deposit ($)</label>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Initial Deposit (Kes)</label>
               <input
                 type="number"
                 value={formData.initialDeposit}
                 onChange={(e) => setFormData({ ...formData, initialDeposit: e.target.value })}
                 className="w-full px-4 py-3 border-2 border-emerald-300 rounded-lg focus:border-emerald-500 focus:outline-none"
-                min="10"
+                min="100"
+                max="1000000"
                 step="0.01"
                 required
               />
@@ -204,8 +229,19 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ isOpen, onClose, onS
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">Transaction PIN (4 digits)</label>
               <PinInput
+                id="transaction-pin"
                 pins={formData.transactionPin}
                 setPins={(pins) => setFormData({ ...formData, transactionPin: pins })}
+                disabled={isLoading}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm PIN (4 digits)</label>
+              <PinInput
+                id="confirm-pin"
+                pins={formData.confirmPin}
+                setPins={(pins) => setFormData({ ...formData, confirmPin: pins })}
                 disabled={isLoading}
               />
             </div>
@@ -213,7 +249,12 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ isOpen, onClose, onS
             <div className="flex gap-4 pt-4">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => {
+                  setFormData(initialFormData);
+                  setShowPassword(false);
+                  setError('');
+                  onClose();
+                }}
                 className="flex-1 bg-emerald-200 text-emerald-700 py-3 rounded-lg font-semibold hover:bg-emerald-300 transition-all"
               >
                 Cancel

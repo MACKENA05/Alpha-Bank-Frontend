@@ -4,9 +4,15 @@ interface PinInputProps {
   pins: string[];
   setPins: (pins: string[]) => void;
   disabled?: boolean;
+  id?: string; // Add unique identifier prop
 }
 
-export const PinInput: React.FC<PinInputProps> = ({ pins, setPins, disabled = false }) => {
+export const PinInput: React.FC<PinInputProps> = ({ 
+  pins, 
+  setPins, 
+  disabled = false,
+  id = 'pin' // Default fallback
+}) => {
   const handlePinChange = (index: number, value: string) => {
     if (value.length <= 1 && /^\d*$/.test(value)) {
       const newPins = [...pins];
@@ -14,7 +20,7 @@ export const PinInput: React.FC<PinInputProps> = ({ pins, setPins, disabled = fa
       setPins(newPins);
       
       if (value && index < 3) {
-        const nextInput = document.getElementById(`pin-${index + 1}`);
+        const nextInput = document.getElementById(`${id}-${index + 1}`);
         nextInput?.focus();
       }
     }
@@ -22,7 +28,7 @@ export const PinInput: React.FC<PinInputProps> = ({ pins, setPins, disabled = fa
 
   const handleKeyDown = (index: number, e: React.KeyboardEvent) => {
     if (e.key === 'Backspace' && !pins[index] && index > 0) {
-      const prevInput = document.getElementById(`pin-${index - 1}`);
+      const prevInput = document.getElementById(`${id}-${index - 1}`);
       prevInput?.focus();
     }
   };
@@ -32,7 +38,7 @@ export const PinInput: React.FC<PinInputProps> = ({ pins, setPins, disabled = fa
       {pins.map((pin, index) => (
         <input
           key={index}
-          id={`pin-${index}`}
+          id={`${id}-${index}`}
           type="password"
           value={pin}
           onChange={(e) => handlePinChange(index, e.target.value)}
