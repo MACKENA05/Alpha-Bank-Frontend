@@ -37,7 +37,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex items-center justify-between h-16 px-6 bg-blue-900">
         <div className="flex items-center">
           <CreditCard size={32} className="text-blue-200" />
-          <span className="ml-2 text-xl font-bold">SecureBank</span>
+          <span className="ml-2 text-xl font-bold">AlphaBank</span>
         </div>
         <button
           onClick={() => setIsSidebarOpen(false)}
