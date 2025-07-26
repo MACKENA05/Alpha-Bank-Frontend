@@ -1,34 +1,45 @@
 import React from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Home, CreditCard, History, User, Shield, FileText, Users, LogOut, X } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 interface SidebarProps {
-  currentView: string;
-  setCurrentView: (view: string) => void;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ 
-  currentView, 
-  setCurrentView, 
   isSidebarOpen, 
   setIsSidebarOpen 
 }) => {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'accounts', label: 'Accounts', icon: CreditCard },
-    { id: 'transactions', label: 'Transactions', icon: History },
-    { id: 'profile', label: 'Profile', icon: User },
+    { path: '/dashboard', label: 'Dashboard', icon: Home },
+    { path: '/accounts', label: 'Accounts', icon: CreditCard },
+    { path: '/transactions', label: 'Transactions', icon: History },
+    { path: '/profile', label: 'Profile', icon: User },
   ];
 
   const adminMenuItems = [
-    { id: 'admin-dashboard', label: 'Admin Dashboard', icon: Shield },
-    { id: 'admin-transactions', label: 'All Transactions', icon: FileText },
-    { id: 'admin-users', label: 'User Management', icon: Users },
+    { path: '/admin/dashboard', label: 'Admin Dashboard', icon: Shield },
+    { path: '/admin/transactions', label: 'All Transactions', icon: FileText },
+    { path: '/admin/users', label: 'User Management', icon: Users },
   ];
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/auth');
+  };
+
+  const isActive = (path: string) => {
+    if (path === '/dashboard') {
+      return location.pathname === '/' || location.pathname === '/dashboard';
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
     <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-gradient-to-b from-blue-800 to-blue-900 text-white transform ${
@@ -37,11 +48,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex items-center justify-between h-16 px-6 bg-blue-900">
         <div className="flex items-center">
           <CreditCard size={32} className="text-blue-200" />
-          <span className="ml-2 text-xl font-bold">AlphaBank</span>
+          <span className="ml-2 text-xl font-bold">SecureBank</span>
         </div>
         <button
           onClick={() => setIsSidebarOpen(false)}
-          className="lg:hidden text-white"
+          className="lg:hidden text-white hover:text-gray-200"
         >
           <X size={24} />
         </button>
@@ -52,21 +63,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {menuItems.map(item => {
             const Icon = item.icon;
             return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setCurrentView(item.id);
-                  setIsSidebarOpen(false);
-                }}
-                className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
-                  currentView === item.id 
+              <NavLink
+                key={item.path}
+                to={item.path}
+                onClick={() => setIsSidebarOpen(false)}
+                className={({ isActive: linkActive }) => `
+                  w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors
+                  ${linkActive || isActive(item.path)
                     ? 'bg-blue-700 text-white' 
                     : 'text-blue-100 hover:bg-blue-700'
-                }`}
+                  }
+                `}
               >
                 <Icon size={20} className="mr-3" />
                 {item.label}
-              </button>
+              </NavLink>
             );
           })}
         </div>
@@ -78,21 +89,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {adminMenuItems.map(item => {
                 const Icon = item.icon;
                 return (
-                  <button
-                    key={item.id}
-                    onClick={() => {
-                      setCurrentView(item.id);
-                      setIsSidebarOpen(false);
-                    }}
-                    className={`w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors ${
-                      currentView === item.id 
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setIsSidebarOpen(false)}
+                    className={({ isActive: linkActive }) => `
+                      w-full flex items-center px-4 py-3 text-left rounded-lg transition-colors
+                      ${linkActive || isActive(item.path)
                         ? 'bg-purple-700 text-white' 
                         : 'text-blue-100 hover:bg-purple-700'
-                    }`}
+                      }
+                    `}
                   >
                     <Icon size={20} className="mr-3" />
                     {item.label}
-                  </button>
+                  </NavLink>
                 );
               })}
             </div>
@@ -101,7 +112,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className="mt-8 pt-8 border-t border-blue-700">
           <button
-            onClick={logout}
+            onClick={handleLogout}
             className="w-full flex items-center px-4 py-3 text-left text-blue-100 hover:bg-red-700 rounded-lg transition-colors"
           >
             <LogOut size={20} className="mr-3" />

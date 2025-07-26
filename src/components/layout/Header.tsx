@@ -3,8 +3,8 @@ import { Menu } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
 interface HeaderProps {
-  isSidebarOpen?: boolean;
-  setIsSidebarOpen?: (open: boolean) => void;
+  isSidebarOpen: boolean;
+  setIsSidebarOpen: (open: boolean) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({ isSidebarOpen, setIsSidebarOpen }) => {
@@ -14,13 +14,13 @@ export const Header: React.FC<HeaderProps> = ({ isSidebarOpen, setIsSidebarOpen 
     <div className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
       <div className="flex justify-between items-center">
         <button
-          onClick={() => setIsSidebarOpen?.(true)}
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className="lg:hidden text-gray-600 hover:text-gray-800"
         >
           <Menu size={24} />
         </button>
         
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-4 ml-auto">
           <div className="text-right">
             <p className="text-sm font-semibold text-gray-800">{user?.firstName} {user?.lastName}</p>
             <p className="text-xs text-gray-600">{user?.role}</p>
