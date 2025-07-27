@@ -8,10 +8,14 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentView, setCurrentView] = useState('dashboard');
+
 
   return (
     <div className="flex h-screen bg-gray-50">
       <Sidebar 
+        currentView={currentView}
+        setCurrentView={setCurrentView}
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
       />

@@ -8,6 +8,9 @@ interface RegisterFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  loading: boolean;
+  setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+  showMessage: (msg: string, type: 'success' | 'error') => void;
 }
 
 export const RegisterForm: React.FC<RegisterFormProps> = ({ isOpen, onClose, onSuccess }) => {

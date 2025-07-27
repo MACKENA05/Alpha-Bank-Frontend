@@ -13,15 +13,16 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 
-interface SidebarProps {
+export interface SidebarProps {
+  currentView: string;
+  setCurrentView: (view: string) => void;
   isSidebarOpen: boolean;
   setIsSidebarOpen: (open: boolean) => void;
 }
 
+
 export const Sidebar: React.FC<SidebarProps> = ({
-  isSidebarOpen,
-  setIsSidebarOpen,
-}) => {
+   currentView, setCurrentView, isSidebarOpen, setIsSidebarOpen }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();

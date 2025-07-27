@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { LoginForm } from '../components/auth/LoginForm';
-import { RegisterForm } from '../components/auth/RegisterForm';
+import { Dashboard } from '../components/dashboard/Dashboard';
 import { MessageBar } from '../components/common/MessageBar';
 
-export const AuthPage: React.FC = () => {
-  const [showRegisterModal, setShowRegisterModal] = useState(false);
+export const AccountsPage: React.FC = () => {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
 
@@ -21,12 +19,7 @@ export const AuthPage: React.FC = () => {
         type={messageType}
         onClose={() => setMessage('')}
       />
-      <LoginForm onRegisterClick={() => setShowRegisterModal(true)} />
-      <RegisterForm 
-        isOpen={showRegisterModal}
-        onClose={() => setShowRegisterModal(false)}
-        onSuccess={() => showMessage('Registration successful! Please login.', 'success')}
-      />
+      <Dashboard showMessage={showMessage} />
     </>
   );
 };
