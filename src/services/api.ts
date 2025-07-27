@@ -1,6 +1,8 @@
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
 
 export const apiCall = async (endpoint: string, method: string = 'GET', data?: any) => {
+  console.log('apiCall called:', endpoint, method, data);
+  
   const token = localStorage.getItem('authToken');
   const headers: any = {
     'Content-Type': 'application/json',
@@ -19,23 +21,31 @@ export const apiCall = async (endpoint: string, method: string = 'GET', data?: a
     config.body = JSON.stringify(data);
   }
 
-  try {
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  console.log('About to fetch:', `${API_BASE_URL}${endpoint}`);
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
+  console.log('Fetch completed, response status:', response.status);
+  
+  if (!response.ok) {
+    console.log('Response not ok, status:', response.status);
     
-    if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('authToken');
-        window.location.href = '/login';
-        throw new Error('Session expired. Please login again.');
-      }
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    const errorData = await response.json().catch(() => ({}));
+    console.log('Error data from response:', errorData);
+    
+    // Only redirect on 401 if we're NOT on the login page
+    if (response.status === 401 && window.location.pathname !== '/login') {
+      localStorage.removeItem('authToken');
+      window.location.href = '/login';
+      throw new Error('Session expired. Please login again.');
     }
     
-    return await response.json();
-  } catch (error: any) {
-    throw new Error(error.message || 'Network error occurred');
+    // For login page 401 errors, just throw the backend error
+    const error = new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+    (error as any).response = { data: errorData };
+    throw error;
   }
+  
+  console.log('Fetch successful, returning data');
+  return await response.json();
 };
 
 export const authApi = {

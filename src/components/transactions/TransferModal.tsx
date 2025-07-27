@@ -47,13 +47,17 @@ export const TransferModal: React.FC<TransferModalProps> = ({
   }, [formData.amount, formData.senderAccountNumber]);
 
   const validateRecipient = async () => {
+    console.log("Checking account:", formData.recipientAccountNumber);
     try {
-      await accountApi.getAccountByNumber(formData.recipientAccountNumber);
+      const res = await accountApi.getAccountByNumber(formData.recipientAccountNumber);
+      console.log("Account found:", res.data);
       setValidation(prev => ({ ...prev, recipientExists: true }));
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Account check failed:", error.response?.status);
       setValidation(prev => ({ ...prev, recipientExists: false }));
     }
   };
+  ;
 
   const validateAmount = () => {
     const amount = parseFloat(formData.amount);

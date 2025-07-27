@@ -71,7 +71,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
         transactionPin: ['', '', '', '']
       });
     } catch (error: any) {
-      showMessage(error.message, 'error');
+      showMessage(error.response?.data?.message || error.message, 'error');
     } finally {
       setIsLoading(false);
     }

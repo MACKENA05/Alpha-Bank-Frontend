@@ -90,7 +90,7 @@ export const PinInput: React.FC<PinInputProps> = ({
         <input
           key={index}
           ref={(el) => (inputRefs.current[index] = el)}
-          type="text"
+          type="password"
           inputMode="numeric"
           pattern="[0-9]*"
           value={pin}

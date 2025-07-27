@@ -8,7 +8,7 @@ import { WithdrawModal } from '../transactions/WithdrawModal';
 import { DepositModal } from '../transactions/DepositModal';
 import { useNavigate } from 'react-router-dom';
 
-export const Dashboard: React.FC = () => {
+export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState<Account[]>([]);

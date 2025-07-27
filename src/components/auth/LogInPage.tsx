@@ -28,25 +28,33 @@ export const LoginPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('FORM SUBMITTED!');
+    
     setIsLoading(true);
     setError('');
     setSuccessMessage('');
-
+  
     try {
+      console.log('ABOUT TO CALL LOGIN!');
       await login(email, password);
       
-      // Clear the form immediately after successful login
+  
       clearLoginForm();
       
       setSuccessMessage('Login successful! Redirecting to dashboard...');
       
-      // Navigate after showing success message
       setTimeout(() => {
         navigate(from, { replace: true });
       }, 800);
     } catch (error: any) {
-      setError(error.message);
+      console.log('Error caught in LoginPage:', error);
+      
+      // Get the backend error message
+      const errorMessage = error.response?.data?.message || error.message || 'Login failed. Please try again.';
+      
+      setError(errorMessage); 
       setIsLoading(false);
+  
     }
   };
 
