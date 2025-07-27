@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  register: (data: RegistrationRequest) => Promise<void>; // ✅ ADD THIS
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -23,6 +24,20 @@ export const useAuth = () => {
 interface AuthProviderProps {
   children: ReactNode;
 }
+
+// You may define this in types.ts if you like
+type RegistrationRequest = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  address: string;
+  password: string;
+  transactionPin: string;
+  confirmPin: string;
+  initialDeposit: number;
+  accountType: string;
+};
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -67,18 +82,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const register = async (data: RegistrationRequest) => {
+    await authApi.register(data); 
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
       isAuthenticated,
       loading,
       login,
-      logout
+      logout,
+      register // ✅ ADD THIS
     }}>
       {children}
     </AuthContext.Provider>
   );
 };
-
 
 export { AuthContext };

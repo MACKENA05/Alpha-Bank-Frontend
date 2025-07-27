@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, User, Phone, Home, Eye, EyeOff, CreditCard } from 'lucide-react';
@@ -14,12 +13,11 @@ export const RegisterPage: React.FC = () => {
     address: '',
     password: '',
     deposit: '',
-    pin: '',
-    confirmPin: '',
   });
 
+  const [pin, setPin] = useState(['', '', '', '']);
+  const [confirmPin, setConfirmPin] = useState(['', '', '', '']);
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -27,14 +25,13 @@ export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
 
   const validateForm = () => {
-    const {
-      name, email, phone, address, password,
-       deposit, pin, confirmPin
-    } = formData;
+    const { name, email, phone, address, password, deposit } = formData;
 
     const emailRegex = /\S+@\S+\.\S+/;
     const phoneRegex = /^(\+254|0)[17]\d{8}$/;
     const passwordStrength = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+    const pinStr = pin.join('');
+    const confirmPinStr = confirmPin.join('');
 
     if (!name.trim() || !/^[a-zA-Z\s]+$/.test(name)) return 'Valid name required';
     if (!emailRegex.test(email)) return 'Invalid email';
@@ -42,8 +39,8 @@ export const RegisterPage: React.FC = () => {
     if (address && (address.length < 10 || address.length > 500)) return 'Address must be 10–500 characters';
     if (!passwordStrength.test(password)) return 'Password must be 8+ chars, with uppercase, lowercase, and number';
     if (isNaN(Number(deposit)) || Number(deposit) < 100 || Number(deposit) > 1000000) return 'Deposit must be between 100 and 1,000,000 KES';
-    if (!/^\d{4}$/.test(pin)) return 'PIN must be 4 digits';
-    if (pin !== confirmPin) return 'PINs do not match';
+    if (!/^\d{4}$/.test(pinStr)) return 'PIN must be 4 digits';
+    if (pinStr !== confirmPinStr) return 'PINs do not match';
     return '';
   };
 
@@ -65,19 +62,16 @@ export const RegisterPage: React.FC = () => {
       const data = {
         ...formData,
         deposit: Number(formData.deposit),
+        transactionPin: pin.join(''),
+        confirmPin: confirmPin.join(''),
       };
       await authApi.register(data);
       setSuccess('Account created successfully! Redirecting...');
       setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        address: '',
-        password: '',
-        deposit: '',
-        pin: '',
-        confirmPin: ''
+        name: '', email: '', phone: '', address: '', password: '', deposit: '',
       });
+      setPin(['', '', '', '']);
+      setConfirmPin(['', '', '', '']);
       setTimeout(() => navigate('/login'), 2000);
     } catch (err: any) {
       setError(err?.message || 'Registration failed.');
@@ -89,17 +83,14 @@ export const RegisterPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-100 to-white flex items-center justify-center p-6">
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 overflow-hidden">
-        
         {/* Welcome Section */}
         <div className="bg-gradient-to-br from-blue-600 to-purple-600 text-white p-10 flex flex-col justify-center items-center text-center">
-          <div className="mb-6">
-            <CreditCard size={48} className="mx-auto mb-4" />
-            <h1 className="text-4xl font-bold">Welcome to Alpha Bank</h1>
-            <p className="mt-4 text-lg opacity-90">
-              Secure, smart, and seamless banking.<br />
-              Manage your accounts and transactions with confidence.
-            </p>
-          </div>
+          <CreditCard size={48} className="mx-auto mb-4" />
+          <h1 className="text-4xl font-bold">Welcome to Alpha Bank</h1>
+          <p className="mt-4 text-lg opacity-90">
+            Secure, smart, and seamless banking.<br />
+            Manage your accounts and transactions with confidence.
+          </p>
         </div>
 
         {/* Registration Form */}
@@ -218,11 +209,13 @@ export const RegisterPage: React.FC = () => {
             </div>
 
             {/* PIN */}
-            <PinInput
-              pin={formData.pin}
-              confirmPin={formData.confirmPin}
-              onChange={(name, value) => setFormData(prev => ({ ...prev, [name]: value }))}
-            />
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">Transaction PIN</label>
+              <PinInput pins={pin} setPins={setPin} id="transactionPin" />
+
+              <label className="block text-sm font-semibold text-gray-700 mb-1 mt-4">Confirm PIN</label>
+              <PinInput pins={confirmPin} setPins={setConfirmPin} id="confirmPin" />
+            </div>
 
             {/* Submit */}
             <button

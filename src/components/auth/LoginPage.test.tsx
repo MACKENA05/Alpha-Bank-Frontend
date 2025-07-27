@@ -5,10 +5,14 @@ import { LoginPage } from './LogInPage';
 import { AuthContext } from '../../context/AuthContext';
 
 const mockLogin = jest.fn();
+const mockLogout = jest.fn();
+const mockRegister = jest.fn(); // ✅ Add this
 
 const renderWithAuth = (contextOverrides = {}) => {
   const authContext = {
     login: mockLogin,
+    logout: mockLogout,
+    register: mockRegister, // ✅ Include register here
     isAuthenticated: false,
     user: null,
     loading: false,
@@ -26,3 +30,4 @@ const renderWithAuth = (contextOverrides = {}) => {
     </AuthContext.Provider>
   );
 };
+
