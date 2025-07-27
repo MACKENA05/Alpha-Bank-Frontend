@@ -101,10 +101,12 @@ export interface Account {
   }
   
   export interface TransactionHistoryResponse {
-    transactions: Transaction[];
-    totalTransactions: number;
+    transactionDetails: Transaction[]; 
     currentPage: number;
     totalPages: number;
+    totalElements: number; 
+    hasNext: boolean; 
+    hasPrevious: boolean;
   }
   
   export interface TotalBalanceResponse {

@@ -6,8 +6,9 @@ import { Layout } from './components/layout/Layout';
 import { LoginPage } from './components/auth/LogInPage';
 import { RegisterPage } from './components/auth/RegisterPage';
 import { MessageBar } from './components/common/MessageBar';
-// Import your dashboard component (create this if it doesn't exist)
+import { TransactionHistory } from './components/transactions/TransactionHistory';
 import { DashboardPage } from './components/dashboard/DashboardPage';
+import { UserProfile } from './components/profile/UserProfile';
 import './index.css';
 
 function App() {
@@ -29,16 +30,13 @@ function App() {
               {/* User Routes - Add your dashboard route here */}
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="/dashboard" element={<DashboardPage />} />
-              
-              {/* Add other protected routes here as needed */}
-              {/* Example:
-              <Route path="/profile" element={<ProfilePage />} />
-              <Route path="/transactions" element={<TransactionsPage />} />
-              <Route path="/settings" element={<SettingsPage />} />
-              */}
+              <Route path="transactions" element={<TransactionHistory />} />
+              <Route path="profile" element={<UserProfile />} />
+            
+        
+             
               
               {/* Admin Routes */}
-              {/* Add admin routes here if needed */}
             </Route>
             
             {/* Fallback */}

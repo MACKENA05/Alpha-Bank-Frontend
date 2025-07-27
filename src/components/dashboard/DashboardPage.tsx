@@ -34,14 +34,47 @@ export const DashboardPage: React.FC = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      console.log('Dashboard: Fetching accounts and recent transactions...');
+      
       const [accountsRes, transactionsRes] = await Promise.all([
         accountApi.getUserAccounts(),
-        transactionApi.getHistory({ size: 5 })
+        transactionApi.getHistory({}) // Remove size limit to get all recent transactions
       ]);
       
+      console.log('Dashboard: Accounts response:', accountsRes);
+      console.log('Dashboard: Transactions response:', transactionsRes);
+      
       setAccounts(accountsRes.accounts || []);
-      setTransactions(transactionsRes.transactions || []);
+      
+      // ✅ FIX: Use the correct property name and map the response like in TransactionHistory
+      let recentTransactions = transactionsRes.transactionDetails || [];
+      console.log('Dashboard: Transaction details from backend:', recentTransactions);
+      
+      // ✅ FIX: Map backend response to frontend Transaction interface (same as TransactionHistory)
+      const mappedTransactions = recentTransactions.map((tx: any) => ({
+        id: tx.id,
+        referenceNumber: tx.referenceNumber,
+        amount: tx.amount,
+        transactionType: tx.transactionType.toUpperCase(),
+        transactionDirection: tx.transactionDirection,
+        description: tx.description,
+        status: tx.status.toUpperCase(),
+        balanceAfter: tx.balanceAfter,
+        createdAt: tx.createdAt,
+        transferReference: tx.transferReference,
+        account: {
+          accountNumber: tx.accountNumber,
+          accountType: 'CHECKING'
+        }
+      }));
+
+      // ✅ FIX: Show only the 5 most recent transactions for dashboard
+      const recentFive = mappedTransactions.slice(0, 5);
+      console.log('Dashboard: Mapped recent 5 transactions:', recentFive);
+      setTransactions(recentFive);
+      
     } catch (error: any) {
+      console.error('Dashboard: Error fetching data:', error);
       showMessage('Failed to fetch data: ' + error.message, 'error');
     } finally {
       setIsLoading(false);

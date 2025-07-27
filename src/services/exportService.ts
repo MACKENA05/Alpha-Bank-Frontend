@@ -1,161 +1,67 @@
-import Papa from 'papaparse';
-import { saveAs } from 'file-saver';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import { Transaction, Account, User } from './types';
+// src/services/exportService.ts
 
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
+import { Transaction } from '../services/types';
+import { PDFExportService } from './pdfExportService';
+
+export type ExportFormat = 'pdf';
+export type ExportType = 'report' | 'receipt';
 
 export class ExportService {
-  private static formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+  private static instance: ExportService;
+  private pdfService: PDFExportService;
+
+  private constructor() {
+    this.pdfService = PDFExportService.getInstance();
   }
 
-  private static formatDate(date: string): string {
-    return new Date(date).toLocaleDateString('en-US');
+  public static getInstance(): ExportService {
+    if (!ExportService.instance) {
+      ExportService.instance = new ExportService();
+    }
+    return ExportService.instance;
   }
 
-  // Export transactions to CSV
-  static exportTransactionsToCSV(transactions: Transaction[], fileName?: string): void {
-    const csvData = transactions.map(transaction => ({
-      'Reference Number': transaction.referenceNumber,
-      'Date': this.formatDate(transaction.createdAt),
-      'Type': transaction.transactionType,
-      'Direction': transaction.transactionDirection,
-      'Amount': transaction.amount,
-      'Description': transaction.description,
-      'Status': transaction.status,
-      'Balance After': transaction.balanceAfter,
-      'Account Number': transaction.account.accountNumber,
-      'Account Type': transaction.account.accountType
-    }));
-
-    const csv = Papa.unparse(csvData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const defaultFileName = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
-    saveAs(blob, fileName || defaultFileName);
-  }
-
-  // Export transactions to PDF
-  static exportTransactionsToPDF(transactions: Transaction[], fileName?: string): void {
-    const pdf = new jsPDF();
-    
-    // Header
-    pdf.setFontSize(20);
-    pdf.setFont('helvetica', 'bold');
-    pdf.text('🏦 SecureBank', pdf.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
-    
-    pdf.setFontSize(16);
-    pdf.text('Transaction History Report', pdf.internal.pageSize.getWidth() / 2, 35, { align: 'center' });
-    
-    // Date range
-    pdf.setFontSize(12);
-    pdf.setFont('helvetica', 'normal');
-    pdf.text(`Generated on: ${new Date().toLocaleDateString()}`, pdf.internal.pageSize.getWidth() / 2, 50, { align: 'center' });
-    
-    // Table data
-    const tableData = transactions.map(transaction => [
-      transaction.referenceNumber,
-      this.formatDate(transaction.createdAt),
-      transaction.transactionType,
-      transaction.transactionDirection,
-      this.formatCurrency(transaction.amount),
-      transaction.description,
-      transaction.status,
-      this.formatCurrency(transaction.balanceAfter)
-    ]);
-
-    const headers = [
-      'Reference',
-      'Date',
-      'Type',
-      'Direction',
-      'Amount',
-      'Description',
-      'Status',
-      'Balance After'
-    ];
-
-    pdf.autoTable({
-      head: [headers],
-      body: tableData,
-      startY: 60,
-      styles: { fontSize: 8 },
-      headStyles: { fillColor: [59, 130, 246] },
-      alternateRowStyles: { fillColor: [249, 250, 251] }
-    });
-
-    const defaultFileName = `transaction_report_${new Date().toISOString().split('T')[0]}.pdf`;
-    pdf.save(fileName || defaultFileName);
-  }
-
-  // Export accounts to CSV
-  static exportAccountsToCSV(accounts: Account[], fileName?: string): void {
-    const csvData = accounts.map(account => ({
-      'Account Number': account.accountNumber,
-      'Account Type': account.accountType,
-      'Balance': account.balance,
-      'Status': account.isActive ? 'Active' : 'Inactive',
-      'Created Date': this.formatDate(account.createdAt),
-      'Customer Name': account.user ? `${account.user.firstName} ${account.user.lastName}` : 'N/A',
-      'Customer Email': account.user?.email || 'N/A'
-    }));
-
-    const csv = Papa.unparse(csvData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const defaultFileName = `accounts_${new Date().toISOString().split('T')[0]}.csv`;
-    saveAs(blob, fileName || defaultFileName);
-  }
-
-  // Export users to CSV
-  static exportUsersToCSV(users: User[], fileName?: string): void {
-    const csvData = users.map(user => ({
-      'ID': user.id,
-      'First Name': user.firstName,
-      'Last Name': user.lastName,
-      'Email': user.email,
-      'Phone': user.phoneNumber || 'N/A',
-      'Address': user.address || 'N/A',
-      'Role': user.role,
-      'Status': user.isEnabled ? 'Enabled' : 'Disabled',
-      'Created Date': this.formatDate(user.createdAt)
-    }));
-
-    const csv = Papa.unparse(csvData);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const defaultFileName = `users_${new Date().toISOString().split('T')[0]}.csv`;
-    saveAs(blob, fileName || defaultFileName);
-  }
-
-  // Export filtered data based on date range
-  static exportTransactionsByDateRange(
+  public async exportTransactionReport(
     transactions: Transaction[],
-    startDate: string,
-    endDate: string,
-    format: 'csv' | 'pdf' = 'csv'
-  ): void {
-    const filteredTransactions = transactions.filter(transaction => {
-      const transactionDate = new Date(transaction.createdAt);
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999); // Include the entire end date
-      
-      return transactionDate >= start && transactionDate <= end;
-    });
+    format: ExportFormat = 'pdf'
+  ): Promise<void> {
+    try {
+      if (format === 'pdf') {
+        await this.pdfService.exportTransactionReport(transactions);
+      } else {
+        throw new Error(`Unsupported export format: ${format}`);
+      }
+    } catch (error: any) {
+      throw new Error(`Failed to export transaction report as ${format.toUpperCase()}: ${error.message}`);
+    }
+  }
 
-    const fileName = `transactions_${startDate}_to_${endDate}.${format}`;
-    
-    if (format === 'csv') {
-      this.exportTransactionsToCSV(filteredTransactions, fileName);
+  public async generateTransactionReceipt(
+    transaction: Transaction,
+    format: ExportFormat = 'pdf'
+  ): Promise<void> {
+    try {
+      if (format === 'pdf') {
+        await this.pdfService.generateTransactionReceipt(transaction);
+      } else {
+        throw new Error(`Unsupported export format: ${format}`);
+      }
+    } catch (error: any) {
+      throw new Error(`Failed to generate receipt as ${format.toUpperCase()}: ${error.message}`);
+    }
+  }
+
+  public async exportDocument(
+    data: Transaction | Transaction[],
+    type: ExportType,
+    format: ExportFormat
+  ): Promise<void> {
+    if (type === 'report' && Array.isArray(data)) {
+      return this.exportTransactionReport(data, format);
+    } else if (type === 'receipt' && !Array.isArray(data)) {
+      return this.generateTransactionReceipt(data, format);
     } else {
-      this.exportTransactionsToPDF(filteredTransactions, fileName);
+      throw new Error('Invalid export parameters: data type does not match export type');
     }
   }
 }
