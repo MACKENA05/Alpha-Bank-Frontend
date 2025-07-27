@@ -1,21 +1,35 @@
 import React from 'react';
-import { BrowserRouter } from 'react-router-dom';
-import { AuthContext, useAuthProvider } from './hooks/useAuth';
-import { AppRoutes } from './routes/AppRoutes';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { LoginPage } from './components/auth/LogInPage';
+import { RegisterPage } from './components/auth/RegisterPage';
+import { MessageBar } from './components/common/MessageBar';
 import './index.css';
 
-const App: React.FC = () => {
-  const auth = useAuthProvider();
-
+function App() {
   return (
-    <BrowserRouter>
-      <AuthContext.Provider value={auth}>
+    <AuthProvider>
+      <Router>
         <div className="App">
-          <AppRoutes />
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            
+            {/* Protected Routes */}
+            
+              {/* User Routes */}
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              
+            
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
         </div>
-      </AuthContext.Provider>
-    </BrowserRouter>
+      </Router>
+    </AuthProvider>
   );
-};
+}
 
 export default App;
