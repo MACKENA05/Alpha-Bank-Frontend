@@ -1,238 +1,395 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Mail, Lock, User, Phone, Home, Eye, EyeOff, CreditCard } from 'lucide-react';
+import { Mail, Lock, User, Phone, MapPin, CreditCard, Eye, EyeOff } from 'lucide-react';
 import { PinInput } from '../common/PinInput';
 import { LoadingSpinner } from '../common/LoadingSpinner';
+import { MessageBar } from '../common/MessageBar';
 import { authApi } from '../../services/api';
 
 export const RegisterPage: React.FC = () => {
   const [formData, setFormData] = useState({
-    name: '',
     email: '',
-    phone: '',
-    address: '',
     password: '',
-    deposit: '',
+    firstName: '',
+    lastName: '',
+    phoneNumber: '',
+    address: '',
+    accountType: 'SAVINGS' as 'SAVINGS' | 'CHECKING' | 'BUSINESS',
+    initialDeposit: '',
+    transactionPin: ['', '', '', ''],
+    confirmPin: ['', '', '', '']
   });
-
-  const [pin, setPin] = useState(['', '', '', '']);
-  const [confirmPin, setConfirmPin] = useState(['', '', '', '']);
+  
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-
+  
   const navigate = useNavigate();
 
-  const validateForm = () => {
-    const { name, email, phone, address, password, deposit } = formData;
-
-    const emailRegex = /\S+@\S+\.\S+/;
-    const phoneRegex = /^(\+254|0)[17]\d{8}$/;
-    const passwordStrength = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
-    const pinStr = pin.join('');
-    const confirmPinStr = confirmPin.join('');
-
-    if (!name.trim() || !/^[a-zA-Z\s]+$/.test(name)) return 'Valid name required';
-    if (!emailRegex.test(email)) return 'Invalid email';
-    if (phone && !phoneRegex.test(phone)) return 'Invalid phone number';
-    if (address && (address.length < 10 || address.length > 500)) return 'Address must be 10–500 characters';
-    if (!passwordStrength.test(password)) return 'Password must be 8+ chars, with uppercase, lowercase, and number';
-    if (isNaN(Number(deposit)) || Number(deposit) < 100 || Number(deposit) > 1000000) return 'Deposit must be between 100 and 1,000,000 KES';
-    if (!/^\d{4}$/.test(pinStr)) return 'PIN must be 4 digits';
-    if (pinStr !== confirmPinStr) return 'PINs do not match';
-    return '';
+  const clearForm = () => {
+    setFormData({
+      email: '',
+      password: '',
+      firstName: '',
+      lastName: '',
+      phoneNumber: '',
+      address: '',
+      accountType: 'SAVINGS',
+      initialDeposit: '',
+      transactionPin: ['', '', '', ''],
+      confirmPin: ['', '', '', '']
+    });
+    setShowPassword(false);
+    // Clear any existing error messages
+    setError('');
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const validateForm = () => {
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
+      return false;
+    }
+
+    // Password validation
+    if (formData.password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return false;
+    }
+    
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      setError('Password must contain at least one uppercase letter, one lowercase letter, and one number');
+      return false;
+    }
+
+    const nameRegex = /^[A-Za-z\s]+$/;
+    if (!formData.firstName || formData.firstName.trim().length < 2 || formData.firstName.length > 100 || !nameRegex.test(formData.firstName)) {
+      setError('First name is required, must be between 2-100 characters and contain only letters and spaces');
+      return false;
+    }
+    
+    if (!formData.lastName || formData.lastName.trim().length < 2 || formData.lastName.length > 100 || !nameRegex.test(formData.lastName)) {
+      setError('Last name is required, must be between 2-100 characters and contain only letters and spaces');
+      return false;
+    }
+
+    // Phone validation (Kenyan format) - REQUIRED
+    if (!formData.phoneNumber || !formData.phoneNumber.trim()) {
+      setError('Phone number is required');
+      return false;
+    }
+    
+    const phoneRegex = /^(\+254|0)[1-9]\d{8}$/;
+    if (!phoneRegex.test(formData.phoneNumber)) {
+      setError('Please provide a valid Kenyan phone number (e.g., +254712345678 or 0712345678)');
+      return false;
+    }
+
+    // Address validation - OPTIONAL
+    if (formData.address && (formData.address.trim().length < 10 || formData.address.length > 500)) {
+      setError('Address must be between 10 and 500 characters if provided');
+      return false;
+    }
+
+    // Initial deposit validation - match backend BigDecimal constraints
+    const deposit = parseFloat(formData.initialDeposit);
+    if (isNaN(deposit) || deposit < 100.0 || deposit > 1000000.0) {
+      setError('Initial deposit must be between KES 100.00 and KES 1,000,000.00');
+      return false;
+    }
+
+    // Check decimal places (max 2)
+    if (formData.initialDeposit.includes('.')) {
+      const decimalPart = formData.initialDeposit.split('.')[1];
+      if (decimalPart && decimalPart.length > 2) {
+        setError('Initial deposit can have at most 2 decimal places');
+        return false;
+      }
+    }
+
+    // PIN validation
+    const pin = formData.transactionPin.join('');
+    const confirmPin = formData.confirmPin.join('');
+    
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+      setError('Transaction PIN must be exactly 4 digits');
+      return false;
+    }
+
+    if (pin !== confirmPin) {
+      setError('Transaction PINs do not match');
+      return false;
+    }
+
+    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    const validationError = validateForm();
-    if (validationError) {
-      setError(validationError);
+    setSuccess('');
+
+    if (!validateForm()) {
       return;
     }
 
     setIsLoading(true);
     try {
-      const data = {
-        ...formData,
-        deposit: Number(formData.deposit),
-        transactionPin: pin.join(''),
-        confirmPin: confirmPin.join(''),
+      const registrationData = {
+        email: formData.email,
+        password: formData.password, 
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phoneNumber: formData.phoneNumber, 
+        address: formData.address || null,
+        accountType: formData.accountType,
+        initialDeposit: formData.initialDeposit, 
+        transactionPin: formData.transactionPin.join(''),
+        confirmPin: formData.confirmPin.join('') 
       };
-      await authApi.register(data);
-      setSuccess('Account created successfully! Redirecting...');
-      setFormData({
-        name: '', email: '', phone: '', address: '', password: '', deposit: '',
-      });
-      setPin(['', '', '', '']);
-      setConfirmPin(['', '', '', '']);
-      setTimeout(() => navigate('/login'), 2000);
-    } catch (err: any) {
-      setError(err?.message || 'Registration failed.');
+
+      await authApi.register(registrationData);
+      
+      // Clear the form immediately after successful registration
+      clearForm();
+      
+      setSuccess('🎉 Registration successful! Welcome to AlphaBank. Redirecting to login...');
+      
+      // Navigate to login after showing success message
+      setTimeout(() => {
+        navigate('/login', { replace: true });
+      }, 2500);
+    } catch (error: any) {
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleCloseMessage = () => {
+    setError('');
+    setSuccess('');
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-100 via-purple-100 to-white flex items-center justify-center p-6">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-6xl grid grid-cols-1 md:grid-cols-2 overflow-hidden">
-        {/* Welcome Section */}
-        <div className="bg-gradient-to-br from-blue-600 to-purple-600 text-white p-10 flex flex-col justify-center items-center text-center">
-          <CreditCard size={48} className="mx-auto mb-4" />
-          <h1 className="text-4xl font-bold">Welcome to Alpha Bank</h1>
-          <p className="mt-4 text-lg opacity-90">
-            Secure, smart, and seamless banking.<br />
-            Manage your accounts and transactions with confidence.
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-gray-700 via-gray-800 to-gray-900 flex items-center justify-center p-6">
+      {/* Message Bar for notifications */}
+      {(error || success) && (
+        <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md">
+          <MessageBar
+            message={error || success}
+            type={error ? 'error' : 'success'}
+            onClose={handleCloseMessage}
+            autoClose={true}
+            duration={error ? 6000 : 4000}
+          />
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-y-auto max-h-[95vh]">
+        <div className="bg-gradient-to-r from-emerald-400 to-green-700 text-white p-8 rounded-t-2xl text-center">
+          <div className="text-center">
+            <div className="w-20 h-20 bg-white bg-opacity-20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CreditCard size={32} />
+            </div>
+            <h2 className="text-3xl font-bold">Create Your Account</h2>
+            <p className="mt-2 opacity-90">Join Alpha Bank today and get Secure, Smart and Seamless Banking Services.</p>
+          </div>
         </div>
 
-        {/* Registration Form */}
-        <div className="p-8 md:p-10">
-          <h2 className="text-2xl font-bold text-gray-800 mb-6">Create Your Account</h2>
-
-          {error && <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">{error}</div>}
-          {success && <div className="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">{success}</div>}
-
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Full Name */}
+        <div className="p-8">
+          <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
+            {/* Personal Information */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                <User size={16} className="inline mr-2" />
-                Full Name
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                placeholder="John Doe"
-                className="w-full px-4 py-3 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
-                required
-              />
-            </div>
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                <Mail size={16} className="inline mr-2" />
-                Email Address
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="john.doe@example.com"
-                className="w-full px-4 py-3 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
-                required
-              />
-            </div>
-
-            {/* Phone */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                <Phone size={16} className="inline mr-2" />
-                Phone Number
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="+254712345678"
-                className="w-full px-4 py-3 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            {/* Address */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                <Home size={16} className="inline mr-2" />
-                Address
-              </label>
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                placeholder="123 Alpha Street, Nairobi"
-                className="w-full px-4 py-3 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                <Lock size={16} className="inline mr-2" />
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 pr-12 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
-                  required
-                />
-                <button
-                  type="button"
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500"
-                  onClick={() => setShowPassword(!showPassword)}
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Personal Information</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <User size={16} className="inline mr-2" />
+                    First Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({...formData, firstName: e.target.value})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({...formData, lastName: e.target.value})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Deposit */}
+            {/* Contact Information */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Initial Deposit (KES)
-              </label>
-              <input
-                type="number"
-                name="deposit"
-                value={formData.deposit}
-                onChange={handleChange}
-                placeholder="1000"
-                className="w-full px-4 py-3 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
-                required
-              />
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <Mail size={16} className="inline mr-2" />
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                    placeholder="john@gmail.com"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <Phone size={16} className="inline mr-2" />
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({...formData, phoneNumber: e.target.value})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                    placeholder="+254712345678 or 0712345678"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+
+                {/* Security */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <Lock size={16} className="inline mr-2" />
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={formData.password}
+                      onChange={(e) => setFormData({...formData, password: e.target.value})}
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none pr-12"
+                      placeholder="At least 8 characters with uppercase, lowercase, and number"
+                      required
+                      disabled={isLoading}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      disabled={isLoading}
+                    >
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <MapPin size={16} className="inline mr-2" />
+                    Address (Optional)
+                  </label>
+                  <textarea
+                    value={formData.address}
+                    onChange={(e) => setFormData({...formData, address: e.target.value})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                    rows={3}
+                    placeholder="Enter your address (optional)"
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* PIN */}
+            {/* Account Information */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1">Transaction PIN</label>
-              <PinInput pins={pin} setPins={setPin} id="transactionPin" />
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">Account Information</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    <CreditCard size={16} className="inline mr-2" />
+                    Account Type
+                  </label>
+                  <select
+                    value={formData.accountType}
+                    onChange={(e) => setFormData({...formData, accountType: e.target.value as any})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                    disabled={isLoading}
+                  >
+                    <option value="SAVINGS">Savings Account</option>
+                    <option value="CHECKING">Checking Account</option>
+                  </select>
+                </div>
 
-              <label className="block text-sm font-semibold text-gray-700 mb-1 mt-4">Confirm PIN</label>
-              <PinInput pins={confirmPin} setPins={setConfirmPin} id="confirmPin" />
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Initial Deposit (KES)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.initialDeposit}
+                    onChange={(e) => setFormData({...formData, initialDeposit: e.target.value})}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none"
+                    min="100"
+                    max="1000000"
+                    step="0.01"
+                    placeholder="Minimum KES 100"
+                    required
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Transaction PIN (4 digits)
+                  </label>
+                  <PinInput 
+                    pins={formData.transactionPin} 
+                    setPins={(pins) => setFormData({...formData, transactionPin: pins})}
+                    disabled={isLoading}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Confirm Transaction PIN
+                  </label>
+                  <PinInput 
+                    pins={formData.confirmPin} 
+                    setPins={(pins) => setFormData({...formData, confirmPin: pins})}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Submit */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50"
-            >
-              {isLoading ? <LoadingSpinner /> : '📝 Create Account'}
-            </button>
-
-            <div className="text-center mt-4">
+            <div className="flex gap-4 pt-4">
               <Link
                 to="/login"
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-all text-center"
               >
-                Already have an account? Log in here
+                Back to Login
               </Link>
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="flex-1 bg-gradient-to-r from-green-500 to-green-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50"
+              >
+                {isLoading ? <LoadingSpinner /> : '🚀 Create Account'}
+              </button>
             </div>
           </form>
         </div>
