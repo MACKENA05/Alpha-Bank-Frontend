@@ -5,10 +5,11 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
 import { LoginPage } from './components/auth/LogInPage';
 import { RegisterPage } from './components/auth/RegisterPage';
-import { MessageBar } from './components/common/MessageBar';
-import { TransactionHistory } from './components/transactions/TransactionHistory';
 import { DashboardPage } from './components/dashboard/DashboardPage';
+import { AccountsPage } from './components/accounts/AccountPage'; 
+import { TransactionHistory } from './components/transactions/TransactionHistory';
 import { UserProfile } from './components/profile/UserProfile';
+import { MessageBar } from './components/common/MessageBar';
 import './index.css';
 
 function App() {
@@ -27,21 +28,22 @@ function App() {
                 <Layout />
               </ProtectedRoute>
             }>
-              {/* User Routes - Add your dashboard route here */}
+              {/* User Routes */}
               <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="accounts" element={<AccountsPage />} /> {/* Updated this line */}
               <Route path="transactions" element={<TransactionHistory />} />
               <Route path="profile" element={<UserProfile />} />
-            
-        
-             
               
               {/* Admin Routes */}
+              
             </Route>
             
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
+          
+         
         </div>
       </Router>
     </AuthProvider>

@@ -25,6 +25,9 @@ export interface Account {
       lastName: string;
       email: string;
     };
+    totalTransactions?: number;
+    lastTransactionAmount?: number;
+    lastTransactionDate?: string;
   }
   
   export interface Transaction {
@@ -93,11 +96,15 @@ export interface Account {
     success: boolean;
     message: string;
     data?: T;
+    error?: string;
+    timestamp?: string;
   }
   
   export interface AccountListResponse {
     accounts: Account[];
     totalAccounts: number;
+    totalBalance: number; 
+    message: string;
   }
   
   export interface TransactionHistoryResponse {
