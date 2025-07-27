@@ -33,37 +33,37 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     balanceValid: null as boolean | null,
     amountValid: null as boolean | null
   });
+  const [recipientValidating, setRecipientValidating] = useState(false);
 
-  useEffect(() => {
-    if (formData.recipientAccountNumber && formData.recipientAccountNumber.length >= 10) {
-      validateRecipient();
-    }
-  }, [formData.recipientAccountNumber]);
+  // Remove real-time validation useEffect
 
   useEffect(() => {
     if (formData.amount && formData.senderAccountNumber) {
       validateAmount();
+    } else {
+      setValidation(prev => ({ 
+        ...prev, 
+        balanceValid: null, 
+        amountValid: null 
+      }));
     }
   }, [formData.amount, formData.senderAccountNumber]);
 
-  const validateRecipient = async () => {
-    console.log("Checking account:", formData.recipientAccountNumber);
-    try {
-      const res = await accountApi.getAccountByNumber(formData.recipientAccountNumber);
-      console.log("Account found:", res.data);
-      setValidation(prev => ({ ...prev, recipientExists: true }));
-    } catch (error: any) {
-      console.error("Account check failed:", error.response?.status);
-      setValidation(prev => ({ ...prev, recipientExists: false }));
-    }
+  // Validate account number format (15 characters, starts with ACC)
+  const isValidAccountFormat = (accountNumber: string): boolean => {
+    const trimmed = accountNumber.trim().toUpperCase();
+    return trimmed.length === 15 && trimmed.startsWith('ACC');
   };
-  ;
 
   const validateAmount = () => {
     const amount = parseFloat(formData.amount);
-    const account = accounts.find(acc => acc.accountNumber === formData.senderAccountNumber);
     
-    if (!account || !amount) {
+    // Find the sender account
+    const account = accounts.find(acc => 
+      String(acc.accountNumber).trim() === String(formData.senderAccountNumber).trim()
+    );
+    
+    if (!account || !amount || isNaN(amount)) {
       setValidation(prev => ({
         ...prev,
         balanceValid: null,
@@ -88,21 +88,37 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       return;
     }
 
-    if (!validation.recipientExists || !validation.balanceValid || !validation.amountValid) {
+    // Validate account format before submission
+    if (!isValidAccountFormat(formData.recipientAccountNumber)) {
+      showMessage('Account number must be 15 characters long and start with ACC', 'error');
+      return;
+    }
+
+    if (!validation.balanceValid || !validation.amountValid) {
       showMessage('Please fix validation errors before proceeding', 'error');
       return;
     }
 
+    // Double-check sender account exists
+    const senderAccount = accounts.find(acc => 
+      String(acc.accountNumber).trim() === String(formData.senderAccountNumber).trim()
+    );
+    
+    if (!senderAccount) {
+      showMessage('Please select a valid sender account', 'error');
+      return;
+    }
+
+    const transferData: TransferRequest = {
+      senderAccountNumber: formData.senderAccountNumber.trim(),
+      receiverAccountNumber: formData.recipientAccountNumber.trim().toUpperCase(),
+      amount: parseFloat(formData.amount),
+      notes: formData.description.trim(),
+      transactionPin: pin
+    };
+
     setIsLoading(true);
     try {
-      const transferData: TransferRequest = {
-        senderAccountNumber: formData.senderAccountNumber,
-        recipientAccountNumber: formData.recipientAccountNumber,
-        amount: parseFloat(formData.amount),
-        description: formData.description,
-        transactionPin: pin
-      };
-
       await transactionApi.transfer(transferData);
       onSuccess();
       onClose();
@@ -115,11 +131,60 @@ export const TransferModal: React.FC<TransferModalProps> = ({
         description: '',
         transactionPin: ['', '', '', '']
       });
+      
+      // Reset validation
+      setValidation({
+        recipientExists: null,
+        balanceValid: null,
+        amountValid: null
+      });
+      
+      showMessage('Transfer successful', 'success');
     } catch (error: any) {
-      showMessage(error.message, 'error');
+      console.error('Transfer failed:', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+        transferData: transferData
+      });
+      
+      // Handle different types of errors with specific messages for account not found
+      if (error.response?.status === 400) {
+        const errorMsg = error.response?.data?.message || 'Invalid request. Please check your input.';
+        if (errorMsg.toLowerCase().includes('account not found') || 
+            errorMsg.toLowerCase().includes('receiver account not found') ||
+            errorMsg.toLowerCase().includes('account does not exist') ||
+            errorMsg.toLowerCase().includes('invalid account')) {
+          showMessage('Transaction not processed: Account does not exist. Please verify the account number.', 'error');
+          // Reset recipient validation to force re-check
+          setValidation(prev => ({ ...prev, recipientExists: null }));
+        } else {
+          showMessage(errorMsg, 'error');
+        }
+      } else if (error.response?.status === 404) {
+        showMessage('Transaction not processed: Account does not exist. Please verify the account number.', 'error');
+        setValidation(prev => ({ ...prev, recipientExists: null }));
+      } else if (error.response?.status === 403) {
+        showMessage('You do not have permission to transfer from this account.', 'error');
+      } else if (error.response?.status === 500) {
+        showMessage('Server error occurred. Please try again later.', 'error');
+      } else {
+        showMessage(error.response?.data?.message || error.message, 'error');
+      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Check if form is valid for submission
+  const isFormValid = () => {
+    return (
+      formData.senderAccountNumber &&
+      formData.recipientAccountNumber &&
+      formData.amount &&
+      formData.description &&
+      formData.transactionPin.every(pin => pin !== '')
+    );
   };
 
   if (!isOpen) return null;
@@ -146,14 +211,16 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               <label className="block text-sm font-semibold text-gray-700 mb-2">From Account</label>
               <select
                 value={formData.senderAccountNumber}
-                onChange={(e) => setFormData({...formData, senderAccountNumber: e.target.value})}
+                onChange={(e) => {
+                  setFormData({...formData, senderAccountNumber: e.target.value});
+                }}
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
                 required
               >
                 <option value="">Select account</option>
                 {accounts.map(account => (
-                  <option key={account.accountNumber} value={account.accountNumber}>
-                    {account.accountType} - ****{account.accountNumber.slice(-4)} (KES {account.balance.toLocaleString()})
+                  <option key={account.accountNumber} value={String(account.accountNumber)}>
+                    {account.accountType} - ****{String(account.accountNumber).slice(-4)} (KES {account.balance.toLocaleString()})
                   </option>
                 ))}
               </select>
@@ -162,29 +229,20 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             {/* Recipient Account */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">To Account</label>
-              <input
-                type="text"
-                value={formData.recipientAccountNumber}
-                onChange={(e) => setFormData({...formData, recipientAccountNumber: e.target.value})}
-                className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none ${
-                  validation.recipientExists === null ? 'border-gray-200 focus:border-blue-500' :
-                  validation.recipientExists ? 'border-green-500' : 'border-red-500'
-                }`}
-                placeholder="Enter recipient account number"
-                required
-              />
-              {validation.recipientExists === true && (
-                <p className="text-green-600 text-sm mt-1 flex items-center">
-                  <CheckCircle size={16} className="mr-1" />
-                  Valid recipient account
-                </p>
-              )}
-              {validation.recipientExists === false && (
-                <p className="text-red-600 text-sm mt-1 flex items-center">
-                  <AlertCircle size={16} className="mr-1" />
-                  Account not found
-                </p>
-              )}
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.recipientAccountNumber}
+                  onChange={(e) => {
+                    // Allow letters and numbers, convert to uppercase, limit to 15 characters
+                    const value = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase().slice(0, 15);
+                    setFormData({...formData, recipientAccountNumber: value});
+                  }}
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
+                  placeholder="Enter recipient account number (ACC...)"
+                  required
+                />
+              </div>
             </div>
 
             {/* Amount */}
@@ -194,24 +252,12 @@ export const TransferModal: React.FC<TransferModalProps> = ({
                 type="number"
                 value={formData.amount}
                 onChange={(e) => setFormData({...formData, amount: e.target.value})}
-                className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none ${
-                  validation.amountValid === null ? 'border-gray-200 focus:border-blue-500' :
-                  validation.amountValid && validation.balanceValid ? 'border-green-500' : 'border-red-500'
-                }`}
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-blue-500 focus:outline-none"
                 placeholder="0.00"
                 min="0.01"
                 step="0.01"
                 required
               />
-              {validation.amountValid === false && (
-                <p className="text-red-600 text-sm mt-1">Amount must be between KES 0.01 and KES 1,000,000</p>
-              )}
-              {validation.balanceValid === false && (
-                <p className="text-red-600 text-sm mt-1">Insufficient balance</p>
-              )}
-              {validation.amountValid && validation.balanceValid && (
-                <p className="text-green-600 text-sm mt-1">Valid amount</p>
-              )}
             </div>
 
             {/* Description */}
@@ -238,7 +284,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-4">
+            <div className="flex gap-4 mt-6">
               <button
                 type="button"
                 onClick={onClose}
@@ -248,8 +294,8 @@ export const TransferModal: React.FC<TransferModalProps> = ({
               </button>
               <button
                 type="submit"
-                disabled={isLoading || !validation.recipientExists || !validation.balanceValid || !validation.amountValid}
-                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50"
+                disabled={isLoading || !isFormValid()}
+                className="flex-1 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? <LoadingSpinner /> : 'Transfer'}
               </button>

@@ -46,9 +46,9 @@ export interface Account {
   
   export interface TransferRequest {
     senderAccountNumber: string;
-    recipientAccountNumber: string;
+    receiverAccountNumber: string;
     amount: number;
-    description: string;
+    notes: string;
     transactionPin: string;
   }
   

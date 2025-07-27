@@ -65,7 +65,11 @@ export const accountApi = {
   getLowBalanceAccounts: (threshold: number = 100) => 
     apiCall(`/accounts/low-balance?threshold=${threshold}`),
   getTotalSystemBalance: () => 
-    apiCall('/accounts/total-balance')
+    apiCall('/accounts/total-balance'),
+  
+  // New method for transfer validation - no ownership required
+  validateForTransfer: (accountNumber: string) => 
+    apiCall(`/accounts/validate-for-transfer/${accountNumber}`)
 };
 
 export const transactionApi = {

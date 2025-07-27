@@ -38,7 +38,9 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
     }
 
     const amount = parseFloat(formData.amount);
-    const account = accounts.find(acc => acc.accountNumber === formData.accountNumber);
+    const account = accounts.find(acc => 
+      String(acc.accountNumber).trim() === String(formData.accountNumber).trim()
+    );
     
     if (!account) {
       showMessage('Please select an account', 'error');
