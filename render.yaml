@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: banking-app-frontend
+    env: static
+    branch: main
+    buildCommand: npm install && npm run build
+    staticPublishPath: build
+    envVars:
+      - key: REACT_APP_API_URL
+        value: http://localhost:8080/api
