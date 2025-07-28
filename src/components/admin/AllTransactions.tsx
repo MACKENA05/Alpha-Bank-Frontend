@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Filter, FileText } from 'lucide-react';
 import { transactionApi } from '../../services/api';
-import { Transaction } from '../../services/types';
+import { Transaction, TransactionHistoryResponse } from '../../services/types';
 import { MessageBar } from '../common/MessageBar';
 
 export const AllTransactions: React.FC = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [totalElements, setTotalElements] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
@@ -17,7 +19,9 @@ export const AllTransactions: React.FC = () => {
     minAmount: '',
     maxAmount: '',
     page: 0,
-    size: 20
+    size: 20,
+    sortBy: 'createdAt',
+    sortDir: 'desc'
   });
 
   const showMessage = (msg: string, type: 'success' | 'error') => {
@@ -33,17 +37,49 @@ export const AllTransactions: React.FC = () => {
   const fetchTransactions = async () => {
     setIsLoading(true);
     try {
-      const params: any = {};
+      const params: any = {
+        size: filters.size,
+        page: filters.page,
+        sortBy: filters.sortBy,
+        sortDir: filters.sortDir
+      };
+
+      // Add non-empty filter values
       Object.entries(filters).forEach(([key, value]) => {
-        if (value !== '' && value !== 0) {
+        if (value !== '' && value !== 0 && !['size', 'page', 'sortBy', 'sortDir'].includes(key)) {
           params[key] = value;
         }
       });
 
+      console.log('Fetching transactions with params:', params);
       const response = await transactionApi.getAllTransactions(params);
-      setTransactions(response.transactions || []);
+      console.log('Full transaction API response:', response);
+
+      // Handle response as TransactionHistoryResponse
+      const transactionResponse: TransactionHistoryResponse = response;
+      const transactionList: Transaction[] = transactionResponse.transactionDetails || [];
+
+      console.log('Processed transaction list:', transactionList);
+      console.log('Pagination metadata:', {
+        currentPage: transactionResponse.currentPage,
+        totalPages: transactionResponse.totalPages,
+        totalElements: transactionResponse.totalElements,
+        hasNext: transactionResponse.hasNext,
+        hasPrevious: transactionResponse.hasPrevious
+      });
+
+      setTransactions(transactionList);
+      setTotalElements(transactionResponse.totalElements || 0);
+      setTotalPages(transactionResponse.totalPages || 0);
+
+      if (transactionList.length === 0) {
+        showMessage('No transactions found. Try adjusting filters or verify backend data.', 'error');
+      } else {
+        showMessage(`Successfully loaded ${transactionList.length} of ${transactionResponse.totalElements} transactions.`, 'success');
+      }
     } catch (error: any) {
-      showMessage('Failed to fetch transactions: ' + error.message, 'error');
+      console.error('Failed to fetch transactions:', error);
+      showMessage('Failed to fetch transactions: ' + (error.message || 'Unknown error'), 'error');
     } finally {
       setIsLoading(false);
     }
@@ -61,22 +97,22 @@ TRANSACTION RECORDS
 ${'='.repeat(60)}
 
 ${transactions.map(tx => `
-Reference: ${tx.referenceNumber}
-Date: ${new Date(tx.createdAt).toLocaleDateString()} ${new Date(tx.createdAt).toLocaleTimeString()}
-Type: ${tx.transactionType}
-Direction: ${tx.transactionDirection}
-Amount: KES ${tx.amount.toLocaleString()}
-Account: ${tx.account.accountNumber} (${tx.account.accountType})
-Status: ${tx.status}
-Description: ${tx.description}
-Balance After: KES ${tx.balanceAfter.toLocaleString()}
+Reference: ${tx.referenceNumber || 'N/A'}
+Date: ${tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() + ' ' + new Date(tx.createdAt).toLocaleTimeString() : 'N/A'}
+Type: ${tx.transactionType || 'N/A'}
+Direction: ${tx.transactionDirection || 'N/A'}
+Amount: KES ${tx.amount?.toLocaleString() || '0'}
+Account: ${tx.account?.accountNumber || 'N/A'} (${tx.account?.accountType || 'N/A'})
+Status: ${tx.status || 'N/A'}
+Description: ${tx.description || 'No description'}
+Balance After: KES ${tx.balanceAfter?.toLocaleString() || 'N/A'}
 ${'-'.repeat(40)}
 `).join('')}
 
 ${'='.repeat(60)}
 SUMMARY
 Total Transactions: ${transactions.length}
-Total Volume: KES ${transactions.reduce((sum, tx) => sum + tx.amount, 0).toLocaleString()}
+Total Volume: KES ${transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0).toLocaleString()}
 Completed: ${transactions.filter(tx => tx.status === 'COMPLETED').length}
 Pending: ${transactions.filter(tx => tx.status === 'PENDING').length}
 Failed: ${transactions.filter(tx => tx.status === 'FAILED').length}
@@ -171,7 +207,9 @@ ${'='.repeat(60)}
               minAmount: '',
               maxAmount: '',
               page: 0,
-              size: 20
+              size: 20,
+              sortBy: 'createdAt',
+              sortDir: 'desc'
             })}
             className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-all"
           >
@@ -211,7 +249,6 @@ ${'='.repeat(60)}
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Direction</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -222,11 +259,11 @@ ${'='.repeat(60)}
                 {transactions.map((tx, index) => (
                   <tr key={tx.id || index} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {tx.referenceNumber}
+                      {tx.referenceNumber || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ****{tx.account.accountNumber.slice(-4)}
-                      <div className="text-xs text-gray-500">{tx.account.accountType}</div>
+                      {tx.account?.accountNumber ? `****${tx.account.accountNumber.slice(-4)}` : 'N/A'}
+                      <div className="text-xs text-gray-500">{tx.account?.accountType || 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -234,18 +271,18 @@ ${'='.repeat(60)}
                         tx.transactionType === 'WITHDRAWAL' ? 'bg-red-100 text-red-800' :
                         'bg-blue-100 text-blue-800'
                       }`}>
-                        {tx.transactionType}
+                        {tx.transactionType || 'N/A'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         tx.transactionDirection === 'CREDIT' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                       }`}>
-                        {tx.transactionDirection}
+                        {tx.transactionDirection || 'N/A'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      KES {tx.amount.toLocaleString()}
+                      KES {tx.amount?.toLocaleString() || '0'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -253,15 +290,15 @@ ${'='.repeat(60)}
                         tx.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
                         'bg-red-100 text-red-800'
                       }`}>
-                        {tx.status}
+                        {tx.status || 'N/A'}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {new Date(tx.createdAt).toLocaleDateString()}
-                      <div className="text-xs text-gray-500">{new Date(tx.createdAt).toLocaleTimeString()}</div>
+                      {tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() : 'N/A'}
+                      <div className="text-xs text-gray-500">{tx.createdAt ? new Date(tx.createdAt).toLocaleTimeString() : 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                      {tx.description}
+                      {tx.description || 'No description'}
                     </td>
                   </tr>
                 ))}
@@ -274,7 +311,7 @@ ${'='.repeat(60)}
           <div className="text-center py-12 text-gray-500">
             <FileText size={48} className="mx-auto mb-4 text-gray-300" />
             <p className="text-lg">No transactions found</p>
-            <p className="text-sm">Try adjusting your filters</p>
+            <p className="text-sm">Total transactions: {totalElements}. Try adjusting filters or verify backend data.</p>
           </div>
         )}
       </div>
@@ -289,11 +326,11 @@ ${'='.repeat(60)}
           Previous Page
         </button>
         <span className="text-gray-600 font-medium">
-          Page {filters.page + 1} • Showing {transactions.length} transactions
+          Page {filters.page + 1} of {totalPages} • Showing {transactions.length} of {totalElements} transactions
         </span>
         <button
           onClick={() => setFilters({...filters, page: filters.page + 1})}
-          disabled={transactions.length < filters.size}
+          disabled={filters.page >= totalPages - 1}
           className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Next Page

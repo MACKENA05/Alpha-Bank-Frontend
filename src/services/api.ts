@@ -78,6 +78,34 @@ export const accountApi = {
     apiCall('/accounts/create', 'POST', data),
 };
 
+export const userApi = {
+  getProfile: () => apiCall('/users/profile'),
+  
+  getUserById: async (userId: number) => {
+    console.log(`Fetching user with ID: ${userId}`);
+    const response = await apiCall(`/admin/users/${userId}`);
+    console.log('User API response:', JSON.stringify(response, null, 2));
+    return response;
+  },
+  
+  getAllUsers: (params?: any) => {
+    // Convert frontend params to match backend expectations
+    const backendParams = {
+      page: params?.page || 0,
+      size: params?.size || 10,
+      sortBy: params?.sortBy || 'id',
+      sortDirection: params?.sortDir || params?.sortDirection || 'ASC' // Convert sortDir to sortDirection
+    };
+    
+    const queryString = new URLSearchParams(backendParams.toString());
+    console.log('Calling getAllUsers with params:', backendParams);
+    return apiCall(`/admin/users?${queryString}`);
+  },
+  
+  deleteUser: (userId: number) => apiCall(`/admin/users/${userId}`, 'DELETE')
+};
+
+// Keep transaction API separate
 export const transactionApi = {
   withdraw: (data: any) => 
     apiCall('/transactions/withdraw', 'POST', data),
@@ -93,21 +121,15 @@ export const transactionApi = {
     const queryString = params ? `?${new URLSearchParams(params)}` : '';
     return apiCall(`/transactions/admin/all${queryString}`);
   },
+  
+  // This is for getting transactions by user, not user details
+  getUserTransactions: (userId: number, params?: any) => {
+    const queryString = params ? `?${new URLSearchParams(params)}` : '';
+    return apiCall(`/transactions/admin/user/${userId}${queryString}`);
+  },
+  
   getByReference: (referenceNumber: string) => 
     apiCall(`/transactions/reference/${referenceNumber}`),
   getById: (transactionId: number) => 
     apiCall(`/transactions/id/${transactionId}`)
-};
-
-export const userApi = {
-  getProfile: () => 
-    apiCall('/users/profile'),
-  getUserById: (userId: number) => 
-    apiCall(`/users/${userId}`),
-  getAllUsers: (params?: any) => {
-    const queryString = params ? `?${new URLSearchParams(params)}` : '';
-    return apiCall(`/users${queryString}`);
-  },
-  deleteUser: (userId: number) => 
-    apiCall(`/users/${userId}`, 'DELETE')
 };

@@ -12,6 +12,7 @@ import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AllTransactions } from './components/admin/AllTransactions';
 import { AccountsPage }  from './components/accounts/AccountPage';
 import { UserManagement } from './components/admin/UserManagement';
+import { UserDetails } from './components/admin/UserDetails'; // Add this import
 import { MessageBar } from './components/common/MessageBar';
 import './index.css';
 
@@ -52,6 +53,12 @@ function App() {
               <Route path="admin/users" element={
                 <ProtectedRoute adminOnly>
                   <UserManagement />
+                </ProtectedRoute>
+              } />
+              {/* Add the user details route */}
+              <Route path="users/:userId" element={
+                <ProtectedRoute adminOnly>
+                  <UserDetails />
                 </ProtectedRoute>
               } />
             </Route>
