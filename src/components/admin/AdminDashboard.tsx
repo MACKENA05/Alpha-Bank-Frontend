@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { DollarSign, Users, AlertCircle, TrendingUp, CreditCard, PlusCircle, RefreshCw, AlertTriangle, CheckCircle } from 'lucide-react';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { Shield, Users, AlertCircle, TrendingUp, CreditCard, PlusCircle, RefreshCw, AlertTriangle, UserCheck,Database } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { accountApi, transactionApi, userApi } from '../../services/api';
 import { MessageBar } from '../common/MessageBar';
 import { DepositModal } from '../transactions/DepositModal';
+import { useAuth } from '../../context/AuthContext';
 
-interface SystemStats {
-  totalBalance: number;
-  totalAccounts: number;
-  lowBalanceAccounts: number;
-  totalUsers: number;
+interface AdminStats {
+  totalSystemBalance: number;
+  totalAdminAccounts: number;
+  totalSystemUsers: number;
+  totalAdminUsers: number;
+  pendingVerifications: number;
 }
 
 interface LoadingState {
@@ -18,20 +20,19 @@ interface LoadingState {
 }
 
 interface ErrorState {
-  totalBalance: boolean;
-  lowBalance: boolean;
+  stats: boolean;
   transactions: boolean;
   users: boolean;
 }
 
 export const AdminDashboard: React.FC = () => {
-  const [systemStats, setSystemStats] = useState<SystemStats | null>(null);
-  const [transactionStats, setTransactionStats] = useState<any[]>([]);
-  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const { user } = useAuth();
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
+  const [systemTransactions, setSystemTransactions] = useState<any[]>([]);
+  const [adminActivity, setAdminActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState<LoadingState>({ dashboard: true, refresh: false });
   const [errors, setErrors] = useState<ErrorState>({
-    totalBalance: false,
-    lowBalance: false,
+    stats: false,
     transactions: false,
     users: false
   });
@@ -48,18 +49,17 @@ export const AdminDashboard: React.FC = () => {
 
   const resetErrors = () => {
     setErrors({
-      totalBalance: false,
-      lowBalance: false,
+      stats: false,
       transactions: false,
       users: false
     });
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchAdminDashboardData();
   }, []);
 
-  const fetchDashboardData = async (isRefresh: boolean = false) => {
+  const fetchAdminDashboardData = async (isRefresh: boolean = false) => {
     if (isRefresh) {
       setLoading(prev => ({ ...prev, refresh: true }));
     } else {
@@ -68,162 +68,136 @@ export const AdminDashboard: React.FC = () => {
     
     resetErrors();
     
-    console.log('🛡️ Admin Dashboard: Starting data fetch...');
+    console.log('🛡️ Admin Dashboard: Starting admin-specific data fetch...');
     
     try {
-      // Initialize with safe default values
-      let totalBalanceData = { totalBalance: 0, totalAccounts: 0 };
-      let lowBalanceData: any = { totalLowBalanceAccounts: 0 };
-      let transactionsData: any = { transactions: [] };
-      let usersData: any = { totalUsers: 0 };
+      let adminStatsData: AdminStats = {
+        totalSystemBalance: 0,
+        totalAdminAccounts: 0,
+        totalSystemUsers: 0,
+        totalAdminUsers: 0,
+        pendingVerifications: 0
+      };
 
-      // Enhanced API calls with better error handling
       const apiCalls = await Promise.allSettled([
-        // 1. Fetch total balance with enhanced error handling
+        // 1. Fetch system-wide statistics (admin view)
         accountApi.getTotalSystemBalance().then(response => {
-          console.log('✅ Total balance response:', response);
-          // Handle different response structures
-          if (response.data) {
-            // Response wrapped in ApiResponse
-            const data = response.data;
-            return {
-              totalBalance: data.totalBalance?.totalSystemBalance || data.totalSystemBalance || data.totalBalance || 0,
-              totalAccounts: data.totalAccounts || data.totalActiveAccounts || 0
-            };
-          } else if (response.totalBalance !== undefined || response.totalSystemBalance !== undefined) {
-            // Direct response
-            return {
-              totalBalance: response.totalSystemBalance || response.totalBalance || 0,
-              totalAccounts: response.totalActiveAccounts || response.totalAccounts || 0
-            };
-          }
-          return { totalBalance: 0, totalAccounts: 0 };
-        }),
-
-        // 2. Fetch low balance accounts
-        accountApi.getLowBalanceAccounts(100).then(response => {
-          console.log('✅ Low balance response:', response);
+          console.log('✅ Admin system balance response:', response);
           if (response.data) {
             return {
-              totalLowBalanceAccounts: response.data.count || response.data.totalLowBalanceAccounts || 0,
-              accounts: response.data.accounts || []
+              totalSystemBalance: response.data.totalBalance?.totalSystemBalance || response.data.totalSystemBalance || 0,
+              totalAdminAccounts: response.data.adminAccounts || 0
             };
           }
           return {
-            totalLowBalanceAccounts: response.totalLowBalanceAccounts || response.count || 0,
-            accounts: response.accounts || []
+            totalSystemBalance: response.totalSystemBalance || response.totalBalance || 0,
+            totalAdminAccounts: response.adminAccounts || 0
           };
         }),
 
-        // 3. Fetch recent transactions
-        transactionApi.getAllTransactions({ size: 10 }).then(response => {
-          console.log('✅ Transactions response:', response);
-          // Handle different response structures
+        // 2. Fetch user statistics (all users and admin users)
+        Promise.all([
+          userApi.getAllUsers({ role: 'ALL' }).then(response => {
+            console.log('✅ All users response:', response);
+            return {
+              totalSystemUsers: response.totalUsers || response.users?.length || 0,
+              pendingVerifications: response.pendingVerifications || 0
+            };
+          }),
+          userApi.getAllUsers({ role: 'ADMIN' }).then(response => {
+            console.log('✅ Admin users response:', response);
+            const adminUsers = response.users?.filter((u: any) => u.role === 'ADMIN') || [];
+            return { totalAdminUsers: adminUsers.length };
+          })
+        ]).then(([allUsersResponse, adminUsersResponse]) => ({
+          totalSystemUsers: allUsersResponse.totalSystemUsers,
+          totalAdminUsers: adminUsersResponse.totalAdminUsers,
+          pendingVerifications: allUsersResponse.pendingVerifications
+        })),
+
+        // 3. Fetch system transactions (admin oversight)
+        transactionApi.getAllTransactions({ 
+          size: 20,
+          adminView: true,
+          includeSystemTransactions: true 
+        }).then(response => {
+          console.log('✅ Admin transactions response:', response);
           if (response.transactionDetails) {
             return { transactions: response.transactionDetails };
           } else if (response.data?.transactions) {
             return { transactions: response.data.transactions };
-          } else if (response.transactions) {
-            return { transactions: response.transactions };
           }
-          return { transactions: [] };
-        }),
-
-        // 4. Fetch users
-        userApi.getAllUsers({ size: 10 }).then(response => {
-          console.log('✅ Users response:', response);
-          return {
-            totalUsers: response.totalUsers || response.data?.totalUsers || 0,
-            users: response.users || response.data?.users || []
-          };
+          return { transactions: response.transactions || [] };
         })
       ]);
 
-      // Process results
+      // Process admin statistics
       if (apiCalls[0].status === 'fulfilled') {
-        totalBalanceData = apiCalls[0].value;
+        const balanceData = apiCalls[0].value;
+        adminStatsData.totalSystemBalance = balanceData.totalSystemBalance;
+        adminStatsData.totalAdminAccounts = balanceData.totalAdminAccounts;
       } else {
-        console.error('❌ Total balance failed:', apiCalls[0].reason);
-        setErrors(prev => ({ ...prev, totalBalance: true }));
+        console.error('❌ Admin balance stats failed:', apiCalls[0].reason);
+        setErrors(prev => ({ ...prev, stats: true }));
       }
 
       if (apiCalls[1].status === 'fulfilled') {
-        lowBalanceData = apiCalls[1].value;
+        const userData = apiCalls[1].value;
+        adminStatsData.totalSystemUsers = userData.totalSystemUsers;
+        adminStatsData.totalAdminUsers = userData.totalAdminUsers;
+        adminStatsData.pendingVerifications = userData.pendingVerifications;
       } else {
-        console.error('❌ Low balance failed:', apiCalls[1].reason);
-        setErrors(prev => ({ ...prev, lowBalance: true }));
-      }
-
-      if (apiCalls[2].status === 'fulfilled') {
-        transactionsData = apiCalls[2].value;
-      } else {
-        console.error('❌ Transactions failed:', apiCalls[2].reason);
-        setErrors(prev => ({ ...prev, transactions: true }));
-      }
-
-      if (apiCalls[3].status === 'fulfilled') {
-        usersData = apiCalls[3].value;
-      } else {
-        console.error('❌ Users failed:', apiCalls[3].reason);
+        console.error('❌ User stats failed:', apiCalls[1].reason);
         setErrors(prev => ({ ...prev, users: true }));
       }
 
-      // Set system stats with safe defaults
-      setSystemStats({
-        totalBalance: Number(totalBalanceData.totalBalance) || 0,
-        totalAccounts: Number(totalBalanceData.totalAccounts) || 0,
-        lowBalanceAccounts: Number(lowBalanceData.totalLowBalanceAccounts) || 0,
-        totalUsers: Number(usersData.totalUsers) || 0
-      });
+      if (apiCalls[2].status === 'fulfilled') {
+        const transactionData = apiCalls[2].value;
+        const transactions = transactionData.transactions || [];
+        
+        // Filter for admin-relevant transactions and recent system activity
+        const adminRelevantTransactions = transactions.filter((tx: any) => 
+          tx.amount >= 10000 || 
+          tx.transactionType === 'DEPOSIT' || 
+          tx.status === 'FAILED' || 
+          tx.flagged === true
+        ).slice(0, 10);
 
-      // Process transaction statistics
-      const transactions = transactionsData.transactions || [];
-      setRecentTransactions(transactions.slice(0, 5));
+        setSystemTransactions(adminRelevantTransactions);
 
-      if (transactions.length > 0) {
-        const transactionTypeData = transactions.reduce((acc: any, tx: any) => {
-          const type = tx.transactionType || 'UNKNOWN';
-          acc[type] = (acc[type] || 0) + 1;
-          return acc;
-        }, {});
-
-        const chartData = Object.entries(transactionTypeData).map(([type, count]) => ({
-          name: type,
-          value: count as number,
-          amount: transactions
-            .filter((tx: any) => tx.transactionType === type)
-            .reduce((sum: number, tx: any) => sum + (Number(tx.amount) || 0), 0)
+        // Create admin activity log
+        const recentActivity = transactions.slice(0, 5).map((tx: any) => ({
+          id: tx.id,
+          action: `${tx.transactionType} transaction`,
+          details: `${tx.transactionDirection === 'CREDIT' ? 'Received' : 'Sent'} KES ${Number(tx.amount).toLocaleString()}`,
+          timestamp: tx.createdAt,
+          status: tx.status,
+          severity: tx.status === 'FAILED' ? 'high' : tx.amount >= 50000 ? 'medium' : 'low'
         }));
 
-        setTransactionStats(chartData);
+        setAdminActivity(recentActivity);
       } else {
-        setTransactionStats([]);
+        console.error('❌ Admin transactions failed:', apiCalls[2].reason);
+        setErrors(prev => ({ ...prev, transactions: true }));
       }
 
-      // Update last fetch time
+      setAdminStats(adminStatsData);
       setLastFetchTime(new Date());
 
-      // Show appropriate message
       const errorCount = Object.values(errors).filter(Boolean).length;
-      const successCount = 4 - errorCount;
-
       if (errorCount === 0) {
         if (isRefresh) {
-          showMessage('Dashboard refreshed successfully! All data loaded.', 'success');
+          showMessage('Admin dashboard refreshed successfully!', 'success');
         }
-      } else if (successCount > 0) {
-        showMessage(`Partial data loaded (${successCount}/4 sections). Some services may be unavailable.`, 'error');
       } else {
-        showMessage('Unable to load dashboard data. Please check your connection and try again.', 'error');
+        showMessage(`Partial admin data loaded. ${errorCount} service(s) may be experiencing issues.`, 'error');
       }
 
     } catch (error: any) {
-      console.error('❌ Dashboard fetch failed completely:', error);
-      showMessage('Critical error loading dashboard: ' + (error.message || 'Unknown error'), 'error');
-      // Set all errors to true
+      console.error('❌ Admin dashboard fetch failed:', error);
+      showMessage('Critical error loading admin dashboard: ' + (error.message || 'Unknown error'), 'error');
       setErrors({
-        totalBalance: true,
-        lowBalance: true,
+        stats: true,
         transactions: true,
         users: true
       });
@@ -233,296 +207,284 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleRetry = async () => {
-    await fetchDashboardData(true);
+    await fetchAdminDashboardData(true);
   };
-
-  const getConnectionStatus = () => {
-    const errorCount = Object.values(errors).filter(Boolean).length;
-    if (errorCount === 0) return { color: 'green', text: 'All systems operational', icon: CheckCircle };
-    if (errorCount <= 2) return { color: 'yellow', text: 'Partial service disruption', icon: AlertTriangle };
-    return { color: 'red', text: 'Multiple service issues', icon: AlertCircle };
-  };
-
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
   if (loading.dashboard) {
     return (
-      <div className="flex items-center justify-center h-full">
+      <div className="flex items-center justify-center h-full bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading admin dashboard...</p>
-          <p className="text-sm text-gray-500 mt-2">Fetching system data...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-gray-500 mx-auto mb-4"></div>
+          <p className="text-gray-600 text-lg font-medium">Loading Admin Dashboard...</p>
+          <p className="text-sm text-gray-500 mt-2">Fetching system administration data...</p>
         </div>
       </div>
     );
   }
 
-  const connectionStatus = getConnectionStatus();
-
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
       <MessageBar 
         message={message}
         type={messageType}
         onClose={() => setMessage('')}
       />
 
-      {/* Header with status indicator */}
+      {/* Admin Header */}
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <h1 className="text-3xl font-bold text-gray-800">🛡️ Admin Dashboard</h1>
-          <div className="flex items-center space-x-2">
-            <connectionStatus.icon 
-              size={20} 
-              className={`text-${connectionStatus.color}-500`} 
-            />
-            <span className={`text-sm text-${connectionStatus.color}-600 font-medium`}>
-              {connectionStatus.text}
-            </span>
+          <div className="flex items-center space-x-3">
+            <Shield size={40} className="text-gray-600" />
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800">System Administration</h1>
+              <p className="text-gray-600">Welcome back, Administrator {user?.firstName}</p>
+            </div>
           </div>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-3 items-center">
           {lastFetchTime && (
-            <span className="text-xs text-gray-500">
-              Last updated: {lastFetchTime.toLocaleTimeString()}
+            <span className="text-xs text-gray-500 bg-white px-3 py-1 rounded-full">
+              Updated: {lastFetchTime.toLocaleTimeString()}
             </span>
           )}
           <button 
             onClick={handleRetry}
             disabled={loading.refresh}
-            className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600 transition-all flex items-center disabled:opacity-50"
+            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-all flex items-center disabled:opacity-50 shadow-sm"
           >
             <RefreshCw size={16} className={`mr-2 ${loading.refresh ? 'animate-spin' : ''}`} />
             Refresh
           </button>
           <button 
             onClick={() => setShowDepositModal(true)}
-            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-all flex items-center"
+            className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-all flex items-center shadow-sm"
           >
             <PlusCircle size={16} className="mr-2" />
-            Deposit Money
+            System Deposit
           </button>
         </div>
       </div>
 
-      {/* Error Summary */}
+      {/* Error Summary for Admin */}
       {Object.values(errors).some(error => error) && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
           <div className="flex items-center">
-            <AlertTriangle size={20} className="text-yellow-600 mr-2" />
+            <AlertTriangle size={20} className="text-red-600 mr-2" />
             <div>
-              <h3 className="text-yellow-800 font-semibold">Service Status Alert</h3>
-              <p className="text-yellow-700 text-sm">
-                Some services are currently unavailable:
+              <h3 className="text-red-800 font-semibold">System Service Alert</h3>
+              <p className="text-red-700 text-sm">
+                Administrator attention required - some services are experiencing issues:
               </p>
-              <ul className="text-yellow-700 text-sm mt-1 list-disc list-inside">
-                {errors.totalBalance && <li>Balance & account data service</li>}
-                {errors.lowBalance && <li>Low balance monitoring service</li>}
-                {errors.transactions && <li>Transaction history service</li>}
-                {errors.users && <li>User management service</li>}
+              <ul className="text-red-700 text-sm mt-1 list-disc list-inside">
+                {errors.stats && <li>System statistics service unavailable</li>}
+                {errors.users && <li>User management service unavailable</li>}
+                {errors.transactions && <li>Transaction monitoring service unavailable</li>}
               </ul>
-              <p className="text-yellow-700 text-sm mt-2">
-                Data shown below may be incomplete. Try refreshing or contact system administrator.
-              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* System Statistics Cards */}
-      {systemStats && (
+      {/* Admin System Statistics Cards */}
+      {adminStats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className={`bg-gradient-to-r from-blue-500 to-blue-600 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.totalBalance ? 'opacity-50' : ''}`}>
+          <div className={`bg-gradient-to-r from-gray-600 to-gray-700 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.stats ? 'opacity-50' : ''}`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-100 text-sm uppercase tracking-wide flex items-center">
-                  Total System Balance
-                  {errors.totalBalance && <AlertCircle size={12} className="ml-1" />}
+                <p className="text-gray-200 text-sm uppercase tracking-wide flex items-center">
+                  System Balance
+                  {errors.stats && <AlertCircle size={12} className="ml-1" />}
                 </p>
                 <p className="text-3xl font-bold">
-                  KES {systemStats.totalBalance.toLocaleString()}
+                  KES {adminStats.totalSystemBalance.toLocaleString()}
                 </p>
-                <p className="text-blue-200 text-sm mt-1">
-                  {errors.totalBalance ? 'Service unavailable' : 'Active system balance'}
+                <p className="text-gray-300 text-sm mt-1">
+                  Total system liquidity
                 </p>
               </div>
-              <DollarSign size={48} className="text-blue-200" />
+              <Database size={48} className="text-gray-300" />
             </div>
           </div>
           
-          <div className={`bg-gradient-to-r from-green-500 to-green-600 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.totalBalance ? 'opacity-50' : ''}`}>
+          <div className={`bg-gradient-to-r from-emerald-600 to-emerald-700 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.users ? 'opacity-50' : ''}`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-100 text-sm uppercase tracking-wide flex items-center">
-                  Total Accounts
-                  {errors.totalBalance && <AlertCircle size={12} className="ml-1" />}
-                </p>
-                <p className="text-3xl font-bold">{systemStats.totalAccounts}</p>
-                <p className="text-green-200 text-sm mt-1">
-                  {errors.totalBalance ? 'Service unavailable' : 'Registered accounts'}
-                </p>
-              </div>
-              <CreditCard size={48} className="text-green-200" />
-            </div>
-          </div>
-          
-          <div className={`bg-gradient-to-r from-purple-500 to-purple-600 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.users ? 'opacity-50' : ''}`}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-purple-100 text-sm uppercase tracking-wide flex items-center">
-                  Total Users
+                <p className="text-emerald-200 text-sm uppercase tracking-wide flex items-center">
+                  System Users
                   {errors.users && <AlertCircle size={12} className="ml-1" />}
                 </p>
-                <p className="text-3xl font-bold">{systemStats.totalUsers}</p>
-                <p className="text-purple-200 text-sm mt-1">
-                  {errors.users ? 'Service unavailable' : 'Active users'}
+                <p className="text-3xl font-bold">{adminStats.totalSystemUsers}</p>
+                <p className="text-emerald-300 text-sm mt-1">
+                  Registered users
                 </p>
               </div>
-              <Users size={48} className="text-purple-200" />
+              <Users size={48} className="text-emerald-300" />
             </div>
           </div>
           
-          <div className={`bg-gradient-to-r from-red-500 to-red-600 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.lowBalance ? 'opacity-50' : ''}`}>
+          <div className={`bg-gradient-to-r from-gray-700 to-gray-800 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.users ? 'opacity-50' : ''}`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-red-100 text-sm uppercase tracking-wide flex items-center">
-                  Low Balance Alerts
-                  {errors.lowBalance && <AlertCircle size={12} className="ml-1" />}
+                <p className="text-gray-200 text-sm uppercase tracking-wide flex items-center">
+                  Administrators
+                  {errors.users && <AlertCircle size={12} className="ml-1" />}
                 </p>
-                <p className="text-3xl font-bold">{systemStats.lowBalanceAccounts}</p>
-                <p className="text-red-200 text-sm mt-1">
-                  {errors.lowBalance ? 'Service unavailable' : 'Below KES 100'}
+                <p className="text-3xl font-bold">{adminStats.totalAdminUsers}</p>
+                <p className="text-gray-300 text-sm mt-1">
+                  System administrators
                 </p>
               </div>
-              <AlertCircle size={48} className="text-red-200" />
+              <Shield size={48} className="text-gray-300" />
+            </div>
+          </div>
+          
+          <div className={`bg-gradient-to-r from-amber-600 to-amber-700 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.users ? 'opacity-50' : ''}`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-amber-200 text-sm uppercase tracking-wide flex items-center">
+                  Pending Actions
+                  {errors.users && <AlertCircle size={12} className="ml-1" />}
+                </p>
+                <p className="text-3xl font-bold">{adminStats.pendingVerifications}</p>
+                <p className="text-amber-300 text-sm mt-1">
+                  Require admin review
+                </p>
+              </div>
+              <UserCheck size={48} className="text-amber-300" />
             </div>
           </div>
         </div>
       )}
 
-      {/* Charts and Recent Activity */}
+      {/* Admin Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className={`bg-white p-6 rounded-xl shadow-lg transition-opacity ${errors.transactions ? 'opacity-50' : ''}`}>
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-bold text-gray-800">Transaction Distribution</h3>
-            {errors.transactions && <AlertCircle size={20} className="text-red-500" />}
-          </div>
-          {transactionStats.length > 0 && !errors.transactions ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={transactionStats}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {transactionStats.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value, name) => [`${value} transactions`, name]} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="text-center py-12 text-gray-500">
-              <TrendingUp size={48} className="mx-auto mb-4 text-gray-300" />
-              <p>{errors.transactions ? 'Transaction service unavailable' : 'No transaction data available'}</p>
-              {errors.transactions && (
-                <button 
-                  onClick={handleRetry}
-                  className="mt-2 text-blue-500 hover:text-blue-700 text-sm underline"
-                >
-                  Try refreshing
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
         <div className={`bg-white p-6 rounded-xl shadow-lg transition-opacity ${errors.transactions ? 'opacity-50' : ''}`}>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-gray-800">Recent System Activity</h3>
             {errors.transactions && <AlertCircle size={20} className="text-red-500" />}
           </div>
           <div className="space-y-4 max-h-80 overflow-y-auto">
-            {recentTransactions.length > 0 && !errors.transactions ? (
-              recentTransactions.map((tx, index) => (
-                <div key={tx.id || index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-800">{tx.description || 'Transaction'}</p>
-                    <p className="text-sm text-gray-600">{tx.transactionType} - {tx.referenceNumber}</p>
-                    <p className="text-xs text-gray-500">
-                      Account: ****{tx.account?.accountNumber?.slice(-4)} | 
-                      {new Date(tx.createdAt).toLocaleString()}
-                    </p>
+            {adminActivity.length > 0 && !errors.transactions ? (
+              adminActivity.map((activity, index) => (
+                <div key={activity.id || index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div className="flex items-center flex-1">
+                    <div className={`w-2 h-8 rounded-full mr-3 ${
+                      activity.severity === 'high' ? 'bg-red-500' :
+                      activity.severity === 'medium' ? 'bg-yellow-500' : 'bg-emerald-500'
+                    }`}></div>
+                    <div>
+                      <p className="font-semibold text-gray-800">{activity.action}</p>
+                      <p className="text-sm text-gray-600">{activity.details}</p>
+                      <p className="text-xs text-gray-500">
+                        {new Date(activity.timestamp).toLocaleString()}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className={`font-semibold ${
-                      tx.transactionDirection === 'CREDIT' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {tx.transactionDirection === 'CREDIT' ? '+' : '-'}KES {Number(tx.amount || 0).toLocaleString()}
-                    </p>
-                    <span className={`px-2 py-1 text-xs rounded-full ${
-                      tx.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
-                      tx.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {tx.status}
-                    </span>
-                  </div>
+                  <span className={`px-2 py-1 text-xs rounded-full font-medium ${
+                    activity.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
+                    activity.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {activity.status}
+                  </span>
                 </div>
               ))
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <TrendingUp size={48} className="mx-auto mb-4 text-gray-300" />
-                <p>{errors.transactions ? 'Transaction service unavailable' : 'No recent transactions'}</p>
-                {errors.transactions && (
-                  <button 
-                    onClick={handleRetry}
-                    className="mt-2 text-blue-500 hover:text-blue-700 text-sm underline"
-                  >
-                    Try refreshing
-                  </button>
-                )}
+                <p>{errors.transactions ? 'Activity monitoring unavailable' : 'No recent activity'}</p>
               </div>
             )}
           </div>
         </div>
       </div>
 
-      {/* Transaction Volume Chart */}
-      {transactionStats.length > 0 && !errors.transactions && (
+      {/* High-Value Transactions Monitoring */}
+      <div className={`bg-white p-6 rounded-xl shadow-lg transition-opacity ${errors.transactions ? 'opacity-50' : ''}`}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-gray-800">High-Value Transaction Monitoring</h3>
+          {errors.transactions && <AlertCircle size={20} className="text-red-500" />}
+        </div>
+        <div className="space-y-4 max-h-80 overflow-y-auto">
+          {systemTransactions.length > 0 && !errors.transactions ? (
+            systemTransactions.map((tx, index) => (
+              <div key={tx.id || index} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border-l-4 border-gray-400">
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-gray-800">{tx.description || 'System Transaction'}</p>
+                    <span className={`px-3 py-1 text-xs rounded-full font-medium ${
+                      tx.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
+                      tx.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                    }`}>
+                      {tx.status}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 font-mono">{tx.referenceNumber}</p>
+                  <div className="flex justify-between items-center mt-2">
+                    <p className="text-xs text-gray-500">
+                      Account: ****{tx.account?.accountNumber?.slice(-4)} | 
+                      {new Date(tx.createdAt).toLocaleString()}
+                    </p>
+                    <p className={`font-bold text-lg font-mono ${
+                      tx.transactionDirection === 'CREDIT' ? 'text-emerald-600' : 'text-red-600'
+                    }`}>
+                      {tx.transactionDirection === 'CREDIT' ? '+' : '-'}KES {Number(tx.amount || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  {tx.flagged && (
+                    <div className="mt-2 flex items-center text-red-600">
+                      <AlertTriangle size={16} className="mr-1" />
+                      <span className="text-xs font-medium">Flagged for Review</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <Shield size={48} className="mx-auto mb-4 text-gray-300" />
+              <p>{errors.transactions ? 'Transaction monitoring unavailable' : 'No high-value transactions to monitor'}</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* System Analytics Chart */}
+      {systemTransactions.length > 0 && !errors.transactions && (
         <div className="bg-white p-6 rounded-xl shadow-lg">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Transaction Volume by Type</h3>
+          <h3 className="text-xl font-bold text-gray-800 mb-4">System Transaction Analytics</h3>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={transactionStats}>
+            <BarChart data={systemTransactions.slice(0, 10)}>
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
+              <XAxis 
+                dataKey="referenceNumber" 
+                tick={{ fontSize: 10 }}
+                angle={-45}
+                textAnchor="end"
+                height={60}
+              />
               <YAxis />
               <Tooltip 
                 formatter={(value, name) => [
-                  name === 'amount' ? `KES ${Number(value).toLocaleString()}` : value,
-                  name === 'amount' ? 'Total Amount' : 'Count'
+                  `KES ${Number(value).toLocaleString()}`,
+                  'Amount'
                 ]}
+                labelFormatter={(label) => `Reference: ${label}`}
               />
-              <Bar dataKey="value" fill="#8884d8" name="count" />
-              <Bar dataKey="amount" fill="#82ca9d" name="amount" />
+              <Bar dataKey="amount" fill="#374151" name="Transaction Amount" />
             </BarChart>
           </ResponsiveContainer>
         </div>
       )}
 
-      {/* Deposit Modal */}
+      {/* Admin Deposit Modal */}
       <DepositModal 
         isOpen={showDepositModal}
         onClose={() => setShowDepositModal(false)}
         onSuccess={() => {
-          fetchDashboardData(true);
-          showMessage('Deposit completed successfully!', 'success');
+          fetchAdminDashboardData(true);
+          showMessage('System deposit completed successfully!', 'success');
         }}
         showMessage={showMessage}
       />

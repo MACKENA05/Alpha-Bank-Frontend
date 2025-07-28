@@ -1,4 +1,4 @@
-import React, { useState,useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, CreditCard, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -12,8 +12,9 @@ export const LoginPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [loginSuccess, setLoginSuccess] = useState(false);
 
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/dashboard';
@@ -38,25 +39,28 @@ export const LoginPage: React.FC = () => {
       console.log('ABOUT TO CALL LOGIN!');
       await login(email, password);
       
-  
       clearLoginForm();
-      
-      setSuccessMessage('Login successful! Redirecting to dashboard...');
-      
-      setTimeout(() => {
-        navigate(from, { replace: true });
-      }, 800);
+      setSuccessMessage('Login successful! Redirecting...');
+      setLoginSuccess(true); // Trigger redirect via useEffect
     } catch (error: any) {
       console.log('Error caught in LoginPage:', error);
       
-      // Get the backend error message
       const errorMessage = error.response?.data?.message || error.message || 'Login failed. Please try again.';
       
       setError(errorMessage); 
       setIsLoading(false);
-  
     }
   };
+
+  useEffect(() => {
+    if (loginSuccess && user) {
+      const redirectPath = user.role === 'ADMIN' ? '/admin/dashboard' : from;
+      setTimeout(() => {
+        navigate(redirectPath, { replace: true });
+        setLoginSuccess(false); // Reset after redirect
+      }, 800);
+    }
+  }, [loginSuccess, user, navigate, from]);
 
   const handleCloseMessage = () => {
     setError('');
@@ -65,7 +69,6 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen w-screen bg-gray-100 flex items-center justify-center">
-      {/* Message Bar for notifications */}
       {(error || successMessage) && (
         <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-full max-w-md">
           <MessageBar
@@ -79,7 +82,6 @@ export const LoginPage: React.FC = () => {
       )}
 
       <div className="flex flex-col md:flex-row w-full max-w-6xl bg-white rounded-2xl shadow-2xl overflow-hidden">
-        {/* Left Image Section */}
         <div className="hidden md:flex w-full md:w-1/2 bg-emerald-600 items-center justify-center">
           <img
             src="/brand2.jpg"
@@ -88,7 +90,6 @@ export const LoginPage: React.FC = () => {
           />
         </div>
 
-        {/* Right Login Form Section */}
         <div className="w-full md:w-1/2 p-8 flex flex-col justify-center">
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -99,7 +100,6 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5" autoComplete='off'>
-            {/* Email Field */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 <Mail size={16} className="inline mr-1" />
@@ -116,7 +116,6 @@ export const LoginPage: React.FC = () => {
               />
             </div>
 
-            {/* Password Field */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
                 <Lock size={16} className="inline mr-1" />
@@ -143,7 +142,6 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Submit Button */}
             <button
               type="submit"
               disabled={isLoading}
