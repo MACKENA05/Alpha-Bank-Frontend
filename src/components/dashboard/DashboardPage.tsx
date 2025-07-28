@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Eye, EyeOff, CreditCard, Send, History, Wallet, PlusCircle, MinusCircle, ArrowUpDown, TrendingUp, AlertCircle, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Eye, EyeOff, CreditCard, Send, History, Wallet, PlusCircle, MinusCircle, ArrowUpDown, TrendingUp, AlertCircle, RefreshCw, Clock, ArrowUp, ArrowDown } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import { useAuth } from '../../context/AuthContext';
 import { accountApi, transactionApi } from '../../services/api';
 import { Account, Transaction } from '../../services/types';
@@ -36,11 +37,15 @@ interface EnhancedAccount extends Account {
   transactionCount?: number;
 }
 
+// Chart color schemes
+const COLORS = ['#10b981', '#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6'];
+
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState<EnhancedAccount[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [allTransactions, setAllTransactions] = useState<Transaction[]>([]);
   const [showBalance, setShowBalance] = useState(true);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showWithdrawModal, setShowWithdrawModal] = useState(false);
@@ -51,12 +56,86 @@ export const DashboardPage: React.FC = () => {
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [error, setError] = useState<string | null>(null);
   const [totalBalance, setTotalBalance] = useState(0);
+  const [chartPeriod, setChartPeriod] = useState<'weekly' | 'monthly'>('weekly');
 
   const showMessage = (msg: string, type: 'success' | 'error') => {
     setMessage(msg);
     setMessageType(type);
     setTimeout(() => setMessage(''), 5000);
   };
+
+  // Quick Stats calculations
+  const quickStats = useMemo(() => {
+    const deposits = allTransactions.filter(tx => 
+      tx.transactionType === 'DEPOSIT' && tx.status === 'COMPLETED'
+    );
+    const withdrawals = allTransactions.filter(tx => 
+      tx.transactionType === 'WITHDRAWAL' && tx.status === 'COMPLETED'
+    );
+    const pending = allTransactions.filter(tx => tx.status === 'PENDING');
+
+    return {
+      totalDeposits: deposits.reduce((sum, tx) => sum + tx.amount, 0),
+      totalWithdrawals: withdrawals.reduce((sum, tx) => sum + tx.amount, 0),
+      pendingTransactions: pending.length,
+      pendingAmount: pending.reduce((sum, tx) => sum + tx.amount, 0)
+    };
+  }, [allTransactions]);
+
+  // Chart data processing
+  const chartData = useMemo(() => {
+    if (!allTransactions.length) return [];
+
+    const now = new Date();
+    const period = chartPeriod === 'weekly' ? 7 : 30;
+    const data = [];
+
+    for (let i = period - 1; i >= 0; i--) {
+      const date = new Date(now);
+      date.setDate(date.getDate() - i);
+      
+      const dayTransactions = allTransactions.filter(tx => {
+        const txDate = new Date(tx.createdAt);
+        return txDate.toDateString() === date.toDateString() && tx.status === 'COMPLETED';
+      });
+
+      const deposits = dayTransactions
+        .filter(tx => tx.transactionType === 'DEPOSIT')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+      
+      const withdrawals = dayTransactions
+        .filter(tx => tx.transactionType === 'WITHDRAWAL')
+        .reduce((sum, tx) => sum + tx.amount, 0);
+
+      data.push({
+        date: chartPeriod === 'weekly' ? 
+          date.toLocaleDateString('en-US', { weekday: 'short' }) :
+          date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        deposits,
+        withdrawals,
+        net: deposits - withdrawals
+      });
+    }
+
+    return data;
+  }, [allTransactions, chartPeriod]);
+
+  // Transaction type distribution for pie chart
+  const transactionTypeData = useMemo(() => {
+    const completedTransactions = allTransactions.filter(tx => tx.status === 'COMPLETED');
+    const types = completedTransactions.reduce((acc, tx) => {
+      acc[tx.transactionType] = (acc[tx.transactionType] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    return Object.entries(types).map(([type, count]) => ({
+      name: type,
+      value: count,
+      amount: completedTransactions
+        .filter(tx => tx.transactionType === type)
+        .reduce((sum, tx) => sum + tx.amount, 0)
+    }));
+  }, [allTransactions]);
 
   useEffect(() => {
     fetchData();
@@ -177,12 +256,11 @@ export const DashboardPage: React.FC = () => {
       console.log('Dashboard: Final enhanced accounts set:', enhancedAccounts);
       console.log('Dashboard: Total balance:', calculatedTotal);
 
-      // Fetch recent transactions with proper status handling
+      // Fetch recent transactions with proper status handling (last 5 for recent transactions display)
       try {
         console.log('Dashboard: Calling transactionApi.getHistory() for recent transactions...');
         const transactionsResponse = await transactionApi.getHistory({ 
           size: 5,
-          // Try to force fresh data from database
           orderBy: 'createdAt',
           order: 'DESC',
           includeStatus: true
@@ -204,6 +282,29 @@ export const DashboardPage: React.FC = () => {
             processedTransactions = transactionsResponse.transactions;
           } else if (Array.isArray(transactionsResponse)) {
             processedTransactions = transactionsResponse;
+          }
+        }
+
+        // Fetch all transactions for charts and stats (limit to last 100 for performance)
+        const allTransactionsResponse = await transactionApi.getHistory({ 
+          size: 100,
+          orderBy: 'createdAt',
+          order: 'DESC'
+        });
+
+        let allTxs = [];
+        if (allTransactionsResponse) {
+          if (allTransactionsResponse.success !== undefined) {
+            if (allTransactionsResponse.success && allTransactionsResponse.data) {
+              allTxs = allTransactionsResponse.data.transactionDetails || 
+                      allTransactionsResponse.data.transactions || [];
+            }
+          } else if (allTransactionsResponse.transactionDetails) {
+            allTxs = allTransactionsResponse.transactionDetails;
+          } else if (allTransactionsResponse.transactions) {
+            allTxs = allTransactionsResponse.transactions;
+          } else if (Array.isArray(allTransactionsResponse)) {
+            allTxs = allTransactionsResponse;
           }
         }
 
@@ -292,30 +393,40 @@ export const DashboardPage: React.FC = () => {
           return 'PENDING';
         };
 
-        // Validate and process transactions with enhanced status handling
-        const validTransactions: Transaction[] = processedTransactions.slice(0, 5).map((tx, index) => ({
-          id: Number(tx.id) || index,
-          referenceNumber: tx.referenceNumber || tx.reference || `REF-${Date.now()}-${index}`,
-          amount: Number(tx.amount) || 0,
-          transactionType: normalizeTransactionType(tx.transactionType || tx.type),
-          transactionDirection: (tx.transactionDirection || tx.direction || 'DEBIT') as 'CREDIT' | 'DEBIT',
-          description: tx.description || 'Transaction',
-          status: normalizeTransactionStatus(tx.status, tx), // Enhanced status handling
-          balanceAfter: Number(tx.balanceAfter) || 0,
-          createdAt: tx.createdAt || tx.date || new Date().toISOString(),
-          transferReference: tx.transferReference,
-          account: {
-            accountNumber: tx.accountNumber || tx.account?.accountNumber || 'N/A',
-            accountType: tx.account?.accountType || 'CHECKING'
-          }
-        }));
+        // Process transactions helper function
+        const processTransactions = (txs: RawTransactionData[]) => {
+          return txs.map((tx, index) => ({
+            id: Number(tx.id) || index,
+            referenceNumber: tx.referenceNumber || tx.reference || `REF-${Date.now()}-${index}`,
+            amount: Number(tx.amount) || 0,
+            transactionType: normalizeTransactionType(tx.transactionType || tx.type),
+            transactionDirection: (tx.transactionDirection || tx.direction || 'DEBIT') as 'CREDIT' | 'DEBIT',
+            description: tx.description || 'Transaction',
+            status: normalizeTransactionStatus(tx.status, tx), // Enhanced status handling
+            balanceAfter: Number(tx.balanceAfter) || 0,
+            createdAt: tx.createdAt || tx.date || new Date().toISOString(),
+            transferReference: tx.transferReference,
+            account: {
+              accountNumber: tx.accountNumber || tx.account?.accountNumber || 'N/A',
+              accountType: tx.account?.accountType || 'CHECKING'
+            }
+          }));
+        };
 
+        // Set recent transactions (last 5)
+        const validTransactions: Transaction[] = processTransactions(processedTransactions.slice(0, 5));
         setTransactions(validTransactions);
         console.log('Dashboard: Final transactions with enhanced status:', validTransactions);
+
+        // Set all transactions for charts and stats
+        const allValidTransactions: Transaction[] = processTransactions(allTxs);
+        setAllTransactions(allValidTransactions);
+        console.log('Dashboard: All transactions for charts:', allValidTransactions.length);
 
       } catch (transactionError) {
         console.error('Dashboard: Error fetching transactions:', transactionError);
         setTransactions([]);
+        setAllTransactions([]);
       }
 
     } catch (error: any) {
@@ -454,7 +565,53 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Account Cards - Grey and Emerald Theme */}
+      {/* Quick Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-emerald-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-600 text-sm font-medium">Total Deposits</p>
+              <p className="text-2xl font-bold text-emerald-600">
+                {showBalance ? `KES ${quickStats.totalDeposits.toLocaleString()}` : 'KES ••••••'}
+              </p>
+            </div>
+            <div className="p-3 bg-emerald-100 rounded-full">
+              <ArrowUp size={24} className="text-emerald-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-red-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-600 text-sm font-medium">Total Withdrawals</p>
+              <p className="text-2xl font-bold text-red-600">
+                {showBalance ? `KES ${quickStats.totalWithdrawals.toLocaleString()}` : 'KES ••••••'}
+              </p>
+            </div>
+            <div className="p-3 bg-red-100 rounded-full">
+              <ArrowDown size={24} className="text-red-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-lg border-l-4 border-yellow-500">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-gray-600 text-sm font-medium">Pending Transactions</p>
+              <p className="text-2xl font-bold text-yellow-600">{quickStats.pendingTransactions}</p>
+              <p className="text-sm text-gray-500">
+                {showBalance ? `KES ${quickStats.pendingAmount.toLocaleString()}` : 'KES ••••••'}
+              </p>
+            </div>
+            <div className="p-3 bg-yellow-100 rounded-full">
+              <Clock size={24} className="text-yellow-600" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Account Cards */}
       {accounts.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {accounts.map((account) => (
@@ -521,7 +678,6 @@ export const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Quick Actions - Grey and Emerald Theme */}
       <div className="bg-white p-6 rounded-xl shadow-lg">
         <h3 className="text-xl font-bold text-gray-800 mb-6">Quick Actions</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -571,7 +727,90 @@ export const DashboardPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Recent Transactions - Enhanced Status Display */}
+
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Transaction Trends Chart */}
+        <div className="bg-white p-6 rounded-xl shadow-lg">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-800">Transaction Trends</h3>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setChartPeriod('weekly')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  chartPeriod === 'weekly' 
+                    ? 'bg-emerald-500 text-white' 
+                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }`}
+              >
+                Weekly
+              </button>
+              <button
+                onClick={() => setChartPeriod('monthly')}
+                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                  chartPeriod === 'monthly' 
+                    ? 'bg-emerald-500 text-white' 
+                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                }`}
+              >
+                Monthly
+              </button>
+            </div>
+          </div>
+          
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer>
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip 
+                  formatter={(value: number, name: string) => [
+                    `KES ${value.toLocaleString()}`, 
+                    name === 'deposits' ? 'Deposits' : name === 'withdrawals' ? 'Withdrawals' : 'Net'
+                  ]}
+                />
+                <Bar dataKey="deposits" fill="#10b981" name="deposits" />
+                <Bar dataKey="withdrawals" fill="#ef4444" name="withdrawals" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Transaction Types Distribution */}
+        <div className="bg-white p-6 rounded-xl shadow-lg">
+          <h3 className="text-xl font-bold text-gray-800 mb-6">Transaction Distribution</h3>
+          
+          <div style={{ width: '100%', height: 300 }}>
+            <ResponsiveContainer>
+              <PieChart>
+                <Pie
+                  data={transactionTypeData}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  fill="#8884d8"
+                  dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  {transactionTypeData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  formatter={(value: number, name: string, props: any) => [
+                    `${value} transactions`,
+                    `KES ${props.payload.amount.toLocaleString()}`
+                  ]}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+  
+      {/* Recent Transactions*/}
       <div className="bg-white p-6 rounded-xl shadow-lg">
         <div className="flex justify-between items-center mb-6">
           <h3 className="text-xl font-bold text-gray-800">Recent Transactions</h3>
@@ -609,10 +848,10 @@ export const DashboardPage: React.FC = () => {
                 <p className={`font-semibold text-lg font-mono ${
                   tx.transactionDirection === 'CREDIT' ? 'text-emerald-600' : 'text-red-600'
                 }`}>
-                  {tx.transactionDirection === 'CREDIT' ? '+' : '-'}KES {tx.amount.toLocaleString()}
+                  {tx.transactionDirection === 'CREDIT' ? '+' : '-'}KES {showBalance ? tx.amount.toLocaleString() : '••••••'}
                 </p>
                 <p className="text-sm text-gray-600 font-mono">
-                  Balance: KES {tx.balanceAfter.toLocaleString()}
+                  Balance: KES {showBalance ? tx.balanceAfter.toLocaleString() : '••••••'}
                 </p>
                 {/* Enhanced status display with better colors */}
                 <span className={`inline-block px-2 py-1 text-xs rounded-full font-medium ${

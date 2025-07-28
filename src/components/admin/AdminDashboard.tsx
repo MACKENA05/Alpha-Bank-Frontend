@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, AlertCircle, TrendingUp, CreditCard, PlusCircle, RefreshCw, AlertTriangle, UserCheck,Database } from 'lucide-react';
+import { Shield, Users, AlertCircle, TrendingUp, CreditCard, PlusCircle, RefreshCw, AlertTriangle, UserCheck, Database } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { accountApi, transactionApi, userApi } from '../../services/api';
 import { MessageBar } from '../common/MessageBar';
@@ -57,7 +57,100 @@ export const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchAdminDashboardData();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const processUserData = (response: any) => {
+    let users = [];
+    let totalUsers = 0;
+    let pendingVerifications = 0;
+    let adminUsers = 0;
+    
+    // Comprehensive response structure detection
+    if (response?.data?.users && Array.isArray(response.data.users)) {
+      users = response.data.users;
+      totalUsers = response.data.totalUsers || response.data.total || users.length;
+      pendingVerifications = response.data.pendingVerifications || 0;
+    } else if (response?.users && Array.isArray(response.users)) {
+      users = response.users;
+      totalUsers = response.totalUsers || response.total || users.length;
+      pendingVerifications = response.pendingVerifications || 0;
+    } else if (response?.content && Array.isArray(response.content)) {
+      // Spring Boot pagination format
+      users = response.content;
+      totalUsers = response.totalElements || users.length;
+      pendingVerifications = 0;
+    } else if (response?.data?.content && Array.isArray(response.data.content)) {
+      users = response.data.content;
+      totalUsers = response.data.totalElements || users.length;
+      pendingVerifications = 0;
+    } else if (Array.isArray(response)) {
+      users = response;
+      totalUsers = users.length;
+    } else if (response?.data && Array.isArray(response.data)) {
+      users = response.data;
+      totalUsers = users.length;
+    } else {
+      // Extract counts directly from response
+      totalUsers = response?.totalUsers || 
+                  response?.data?.totalUsers || 
+                  response?.total || 
+                  response?.data?.total ||
+                  response?.totalElements ||
+                  response?.data?.totalElements || 0;
+      pendingVerifications = response?.pendingVerifications || 
+                           response?.data?.pendingVerifications || 0;
+      adminUsers = response?.totalAdminUsers || 
+                  response?.data?.totalAdminUsers || 0;
+    }
+
+    // Process users array if available
+    if (users.length > 0) {
+      // Count admin users
+      adminUsers = users.filter((u: any) => {
+        const possibleRoles = [
+          u.role,
+          u.userRole, 
+          u.type,
+          u.accountType,
+          u.userType
+        ].filter(Boolean);
+        
+        return possibleRoles.some(role => 
+          String(role).toUpperCase() === 'ADMIN' || 
+          String(role).toUpperCase() === 'ADMINISTRATOR'
+        );
+      }).length;
+
+      // Count pending verifications if not already provided
+      if (!pendingVerifications) {
+        pendingVerifications = users.filter((u: any) => {
+          const possibleStatuses = [
+            u.status,
+            u.verificationStatus,
+            u.accountStatus,
+            u.userStatus
+          ].filter(Boolean);
+          
+          return possibleStatuses.some(status =>
+            String(status).toUpperCase() === 'PENDING' || 
+            String(status).toUpperCase() === 'UNVERIFIED' ||
+            String(status).toUpperCase() === 'AWAITING_VERIFICATION'
+          ) || u.isVerified === false;
+        }).length;
+      }
+
+      // Update total count if needed
+      if (!totalUsers || totalUsers < users.length) {
+        totalUsers = users.length;
+      }
+    }
+
+    return {
+      totalSystemUsers: totalUsers,
+      totalAdminUsers: adminUsers,
+      pendingVerifications: pendingVerifications
+    };
+  };
 
   const fetchAdminDashboardData = async (isRefresh: boolean = false) => {
     if (isRefresh) {
@@ -68,8 +161,6 @@ export const AdminDashboard: React.FC = () => {
     
     resetErrors();
     
-    console.log('🛡️ Admin Dashboard: Starting admin-specific data fetch...');
-    
     try {
       let adminStatsData: AdminStats = {
         totalSystemBalance: 0,
@@ -79,83 +170,83 @@ export const AdminDashboard: React.FC = () => {
         pendingVerifications: 0
       };
 
-      const apiCalls = await Promise.allSettled([
-        // 1. Fetch system-wide statistics (admin view)
-        accountApi.getTotalSystemBalance().then(response => {
-          console.log('✅ Admin system balance response:', response);
-          if (response.data) {
-            return {
-              totalSystemBalance: response.data.totalBalance?.totalSystemBalance || response.data.totalSystemBalance || 0,
-              totalAdminAccounts: response.data.adminAccounts || 0
-            };
-          }
-          return {
-            totalSystemBalance: response.totalSystemBalance || response.totalBalance || 0,
-            totalAdminAccounts: response.adminAccounts || 0
-          };
-        }),
-
-        // 2. Fetch user statistics (all users and admin users)
-        Promise.all([
-          userApi.getAllUsers({ role: 'ALL' }).then(response => {
-            console.log('✅ All users response:', response);
-            return {
-              totalSystemUsers: response.totalUsers || response.users?.length || 0,
-              pendingVerifications: response.pendingVerifications || 0
-            };
-          }),
-          userApi.getAllUsers({ role: 'ADMIN' }).then(response => {
-            console.log('✅ Admin users response:', response);
-            const adminUsers = response.users?.filter((u: any) => u.role === 'ADMIN') || [];
-            return { totalAdminUsers: adminUsers.length };
-          })
-        ]).then(([allUsersResponse, adminUsersResponse]) => ({
-          totalSystemUsers: allUsersResponse.totalSystemUsers,
-          totalAdminUsers: adminUsersResponse.totalAdminUsers,
-          pendingVerifications: allUsersResponse.pendingVerifications
-        })),
-
-        // 3. Fetch system transactions (admin oversight)
-        transactionApi.getAllTransactions({ 
-          size: 20,
-          adminView: true,
-          includeSystemTransactions: true 
-        }).then(response => {
-          console.log('✅ Admin transactions response:', response);
-          if (response.transactionDetails) {
-            return { transactions: response.transactionDetails };
-          } else if (response.data?.transactions) {
-            return { transactions: response.data.transactions };
-          }
-          return { transactions: response.transactions || [] };
-        })
-      ]);
-
-      // Process admin statistics
-      if (apiCalls[0].status === 'fulfilled') {
-        const balanceData = apiCalls[0].value;
-        adminStatsData.totalSystemBalance = balanceData.totalSystemBalance;
-        adminStatsData.totalAdminAccounts = balanceData.totalAdminAccounts;
-      } else {
-        console.error('❌ Admin balance stats failed:', apiCalls[0].reason);
+      // Fetch system balance
+      try {
+        const balanceResponse = await accountApi.getTotalSystemBalance();
+        
+        if (balanceResponse?.data) {
+          adminStatsData.totalSystemBalance = balanceResponse.data.totalBalance?.totalSystemBalance || 
+                                            balanceResponse.data.totalSystemBalance || 0;
+          adminStatsData.totalAdminAccounts = balanceResponse.data.adminAccounts || 0;
+        } else {
+          adminStatsData.totalSystemBalance = balanceResponse?.totalSystemBalance || 
+                                            balanceResponse?.totalBalance || 0;
+          adminStatsData.totalAdminAccounts = balanceResponse?.adminAccounts || 0;
+        }
+      } catch (error) {
         setErrors(prev => ({ ...prev, stats: true }));
       }
 
-      if (apiCalls[1].status === 'fulfilled') {
-        const userData = apiCalls[1].value;
-        adminStatsData.totalSystemUsers = userData.totalSystemUsers;
-        adminStatsData.totalAdminUsers = userData.totalAdminUsers;
-        adminStatsData.pendingVerifications = userData.pendingVerifications;
-      } else {
-        console.error('❌ User stats failed:', apiCalls[1].reason);
+      // Fetch user statistics
+      try {
+        let userResponse;
+        let attemptCount = 0;
+        
+        const apiAttempts = [
+          () => userApi.getAllUsers({ role: 'ALL' }),
+          () => userApi.getAllUsers({}),
+          () => userApi.getAllUsers(),
+          () => userApi.getAllUsers({ page: 0, size: 1000 }),
+          () => (userApi as any).getUserStats ? (userApi as any).getUserStats() : Promise.reject(new Error('getUserStats not available'))
+        ];
+
+        // Try each API call until one succeeds
+        for (const attempt of apiAttempts) {
+          try {
+            attemptCount++;
+            userResponse = await attempt();
+            break;
+          } catch (error: any) {
+            if (attemptCount === apiAttempts.length) {
+              throw error;
+            }
+          }
+        }
+
+        if (userResponse) {
+          const userData = processUserData(userResponse);
+          adminStatsData.totalSystemUsers = userData.totalSystemUsers;
+          adminStatsData.totalAdminUsers = userData.totalAdminUsers;
+          adminStatsData.pendingVerifications = userData.pendingVerifications;
+        } else {
+          throw new Error('No user response received from any API attempt');
+        }
+        
+      } catch (error) {
         setErrors(prev => ({ ...prev, users: true }));
+        adminStatsData.totalSystemUsers = 0;
+        adminStatsData.totalAdminUsers = 0;
+        adminStatsData.pendingVerifications = 0;
       }
 
-      if (apiCalls[2].status === 'fulfilled') {
-        const transactionData = apiCalls[2].value;
-        const transactions = transactionData.transactions || [];
+      // Fetch transaction data
+      try {
+        const transactionResponse = await transactionApi.getAllTransactions({ 
+          size: 20,
+          adminView: true,
+          includeSystemTransactions: true 
+        });
         
-        // Filter for admin-relevant transactions and recent system activity
+        let transactions = [];
+        if (transactionResponse?.transactionDetails) {
+          transactions = transactionResponse.transactionDetails;
+        } else if (transactionResponse?.data?.transactions) {
+          transactions = transactionResponse.data.transactions;
+        } else if (transactionResponse?.transactions) {
+          transactions = transactionResponse.transactions;
+        }
+
+        // Filter for admin-relevant transactions
         const adminRelevantTransactions = transactions.filter((tx: any) => 
           tx.amount >= 10000 || 
           tx.transactionType === 'DEPOSIT' || 
@@ -169,21 +260,23 @@ export const AdminDashboard: React.FC = () => {
         const recentActivity = transactions.slice(0, 5).map((tx: any) => ({
           id: tx.id,
           action: `${tx.transactionType} transaction`,
-          details: `${tx.transactionDirection === 'CREDIT' ? 'Received' : 'Sent'} KES ${Number(tx.amount).toLocaleString()}`,
+          details: `${tx.transactionDirection === 'CREDIT' ? 'Received' : 'Sent'} KES ${Number(tx.amount || 0).toLocaleString()}`,
           timestamp: tx.createdAt,
           status: tx.status,
-          severity: tx.status === 'FAILED' ? 'high' : tx.amount >= 50000 ? 'medium' : 'low'
+          severity: tx.status === 'FAILED' ? 'high' : (tx.amount >= 50000 ? 'medium' : 'low')
         }));
 
         setAdminActivity(recentActivity);
-      } else {
-        console.error('❌ Admin transactions failed:', apiCalls[2].reason);
+        
+      } catch (error) {
         setErrors(prev => ({ ...prev, transactions: true }));
       }
 
+      // Update state with final stats
       setAdminStats(adminStatsData);
       setLastFetchTime(new Date());
 
+      // Show appropriate message
       const errorCount = Object.values(errors).filter(Boolean).length;
       if (errorCount === 0) {
         if (isRefresh) {
@@ -194,7 +287,6 @@ export const AdminDashboard: React.FC = () => {
       }
 
     } catch (error: any) {
-      console.error('❌ Admin dashboard fetch failed:', error);
       showMessage('Critical error loading admin dashboard: ' + (error.message || 'Unknown error'), 'error');
       setErrors({
         stats: true,
