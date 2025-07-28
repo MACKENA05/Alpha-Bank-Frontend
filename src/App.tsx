@@ -6,9 +6,12 @@ import { Layout } from './components/layout/Layout';
 import { LoginPage } from './components/auth/LogInPage';
 import { RegisterPage } from './components/auth/RegisterPage';
 import { DashboardPage } from './components/dashboard/DashboardPage';
-import { AccountsPage } from './components/accounts/AccountPage'; 
 import { TransactionHistory } from './components/transactions/TransactionHistory';
 import { UserProfile } from './components/profile/UserProfile';
+import { AdminDashboard } from './components/admin/AdminDashboard';
+import { AllTransactions } from './components/admin/AllTransactions';
+import { AccountsPage }  from './components/accounts/AccountPage';
+import { UserManagement } from './components/admin/UserManagement';
 import { MessageBar } from './components/common/MessageBar';
 import './index.css';
 
@@ -31,19 +34,31 @@ function App() {
               {/* User Routes */}
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="accounts" element={<AccountsPage />} /> {/* Updated this line */}
+              <Route path="accounts" element={<AccountsPage />} />
               <Route path="transactions" element={<TransactionHistory />} />
               <Route path="profile" element={<UserProfile />} />
               
               {/* Admin Routes */}
-              
+              <Route path="admin/dashboard" element={
+                <ProtectedRoute adminOnly>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } />
+              <Route path="admin/transactions" element={
+                <ProtectedRoute adminOnly>
+                  <AllTransactions />
+                </ProtectedRoute>
+              } />
+              <Route path="admin/users" element={
+                <ProtectedRoute adminOnly>
+                  <UserManagement />
+                </ProtectedRoute>
+              } />
             </Route>
             
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
-          
-         
         </div>
       </Router>
     </AuthProvider>

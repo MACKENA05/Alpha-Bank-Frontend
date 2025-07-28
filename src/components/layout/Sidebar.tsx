@@ -156,13 +156,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose, onToggle }) =
                 onClick={onClose}
                 className="w-full flex items-center px-4 py-3 text-left text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 hover:transform hover:scale-105"
               >
-                <Settings size={20} className="mr-3 flex-shrink-0" />
-                <span>Settings</span>
-              </button>
-              <button 
-                onClick={onClose}
-                className="w-full flex items-center px-4 py-3 text-left text-gray-200 hover:bg-gray-700 rounded-lg transition-all duration-200 hover:transform hover:scale-105"
-              >
                 <HelpCircle size={20} className="mr-3 flex-shrink-0" />
                 <span>Help & Support</span>
               </button>

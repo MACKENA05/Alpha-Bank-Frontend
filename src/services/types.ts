@@ -29,6 +29,22 @@ export interface Account {
     lastTransactionAmount?: number;
     lastTransactionDate?: string;
   }
+
+  export interface CreateAccountRequest {
+    accountType: 'SAVINGS' | 'CHECKING' | 'BUSINESS' | 'FIXED_DEPOSIT';
+    transactionPin: string;
+    confirmPin: string;
+    initialDeposit?: number;
+  }
+  
+  export interface CreateAccountResponse {
+    message: string;
+    accountNumber: string;
+    accountType: string;
+    balance: number;
+    isActive: boolean;
+    createdAt: string;
+  }
   
   export interface Transaction {
     id: number;

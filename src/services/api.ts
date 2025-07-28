@@ -1,4 +1,7 @@
+import { CreateAccountRequest, CreateAccountResponse } from "./types";
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8080/api';
+
+
 
 export const apiCall = async (endpoint: string, method: string = 'GET', data?: any) => {
   console.log('apiCall called:', endpoint, method, data);
@@ -69,7 +72,10 @@ export const accountApi = {
   
   // New method for transfer validation - no ownership required
   validateForTransfer: (accountNumber: string) => 
-    apiCall(`/accounts/validate-for-transfer/${accountNumber}`)
+    apiCall(`/accounts/validate-for-transfer/${accountNumber}`),
+
+  createAccount: (data: CreateAccountRequest) =>
+    apiCall('/accounts/create', 'POST', data),
 };
 
 export const transactionApi = {

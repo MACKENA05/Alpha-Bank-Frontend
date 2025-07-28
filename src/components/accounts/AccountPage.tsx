@@ -1,4 +1,4 @@
-// Debug Version - Accounts Component with detailed logging
+// Debug Version - Accounts Component with Create Account Integration
 import React, { useState, useEffect } from 'react';
 import { 
   CreditCard, 
@@ -14,7 +14,10 @@ import {
 } from 'lucide-react';
 
 // Import your existing API service
-import { accountApi } from '../../services/api'; // Adjust the import path to match your project structure
+import { accountApi } from '../../services/api'; 
+
+// ADD THIS IMPORT - You'll need to create this component
+import { CreateAccountModal } from './CreateAccountModal';
 
 // Interfaces matching your backend structure
 interface User {
@@ -36,18 +39,25 @@ interface Account {
 
 export const AccountsPage: React.FC = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
-
   const [showBalance, setShowBalance] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [filterType, setFilterType] = useState<string>('all');
-
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   useEffect(() => {
     fetchAccounts();
   }, []);
+
+  const getExistingAccountTypes = (): string[] => {
+    return accounts.map(account => account.accountType);
+  };
+
+  const handleAccountCreated = () => {
+    fetchAccounts(); // Refresh the accounts list
+  };
 
   // Helper function to normalize isActive field
   const normalizeIsActive = (value: any): boolean => {
@@ -177,8 +187,6 @@ export const AccountsPage: React.FC = () => {
         return '💰';
       case 'CHECKING':
         return '🏦';
-      case 'BUSINESS':
-        return '🏢';
       default:
         return '💳';
     }
@@ -225,7 +233,6 @@ export const AccountsPage: React.FC = () => {
   // Main render
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">
@@ -235,6 +242,16 @@ export const AccountsPage: React.FC = () => {
         </div>
         
         <div className="flex items-center space-x-3">
+          {/* NEW - Create Account Button */}
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center bg-emerald-500 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition-all"
+          >
+            <CreditCard size={16} className="mr-2" />
+            Create Account
+          </button>
+
+          {/* Your existing buttons */}
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
@@ -427,6 +444,14 @@ export const AccountsPage: React.FC = () => {
           </button>
         </div>
       )}
+
+      {/* NEW - Create Account Modal */}
+      <CreateAccountModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onAccountCreated={handleAccountCreated}
+        existingAccountTypes={getExistingAccountTypes()}
+      />
     </div>
   );
 };
