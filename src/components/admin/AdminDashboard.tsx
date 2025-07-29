@@ -174,17 +174,27 @@ export const AdminDashboard: React.FC = () => {
       try {
         const balanceResponse = await accountApi.getTotalSystemBalance();
         
-        if (balanceResponse?.data) {
-          adminStatsData.totalSystemBalance = balanceResponse.data.totalBalance?.totalSystemBalance || 
-                                            balanceResponse.data.totalSystemBalance || 0;
-          adminStatsData.totalAdminAccounts = balanceResponse.data.adminAccounts || 0;
+        console.log('Balance API Response:', balanceResponse); 
+        
+      
+        if (balanceResponse) {
+    
+          const responseData = balanceResponse.data || balanceResponse;
+          
+          adminStatsData.totalSystemBalance = responseData.totalSystemBalance || 0;
+  
+          adminStatsData.totalAdminAccounts = responseData.totalActiveAccounts || 0;
+          
+          console.log('Extracted balance:', adminStatsData.totalSystemBalance);
+          console.log('Extracted admin accounts:', adminStatsData.totalAdminAccounts);
         } else {
-          adminStatsData.totalSystemBalance = balanceResponse?.totalSystemBalance || 
-                                            balanceResponse?.totalBalance || 0;
-          adminStatsData.totalAdminAccounts = balanceResponse?.adminAccounts || 0;
+          throw new Error('No response received from balance API');
         }
       } catch (error) {
+        console.error('Balance fetch error:', error);
         setErrors(prev => ({ ...prev, stats: true }));
+        adminStatsData.totalSystemBalance = 0;
+        adminStatsData.totalAdminAccounts = 0;
       }
 
       // Fetch user statistics
@@ -357,25 +367,6 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Error Summary for Admin */}
-      {Object.values(errors).some(error => error) && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-          <div className="flex items-center">
-            <AlertTriangle size={20} className="text-red-600 mr-2" />
-            <div>
-              <h3 className="text-red-800 font-semibold">System Service Alert</h3>
-              <p className="text-red-700 text-sm">
-                Administrator attention required - some services are experiencing issues:
-              </p>
-              <ul className="text-red-700 text-sm mt-1 list-disc list-inside">
-                {errors.stats && <li>System statistics service unavailable</li>}
-                {errors.users && <li>User management service unavailable</li>}
-                {errors.transactions && <li>Transaction monitoring service unavailable</li>}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Admin System Statistics Cards */}
       {adminStats && (
