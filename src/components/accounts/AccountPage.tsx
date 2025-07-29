@@ -12,14 +12,9 @@ import {
   Unlock,
   MoreVertical
 } from 'lucide-react';
-
-// Import your existing API service
 import { accountApi } from '../../services/api'; 
-
-// ADD THIS IMPORT - You'll need to create this component
 import { CreateAccountModal } from './CreateAccountModal';
 
-// Interfaces matching your backend structure
 interface User {
   id: number;
   email: string;
@@ -59,7 +54,7 @@ export const AccountsPage: React.FC = () => {
     fetchAccounts(); // Refresh the accounts list
   };
 
-  // Helper function to normalize isActive field
+  // normalize isActive field
   const normalizeIsActive = (value: any): boolean => {
     // Handle different data types that might represent active status
     if (typeof value === 'boolean') {

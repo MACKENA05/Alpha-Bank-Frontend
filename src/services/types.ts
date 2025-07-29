@@ -47,6 +47,7 @@ export interface Account {
   }
   
   export interface Transaction {
+    accountNumber: any;
     id: number;
     referenceNumber: string;
     amount: number;
@@ -57,10 +58,7 @@ export interface Account {
     balanceAfter: number;
     createdAt: string;
     transferReference?: string;
-    account: {
-      accountNumber: string;
-      accountType: string;
-    };
+    accountType: string;
   }
   
   export interface TransferRequest {

@@ -44,7 +44,7 @@ export const AllTransactions: React.FC = () => {
         sortDir: filters.sortDir
       };
 
-      // Add non-empty filter values
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value !== '' && value !== 0 && !['size', 'page', 'sortBy', 'sortDir'].includes(key)) {
           params[key] = value;
@@ -87,7 +87,7 @@ export const AllTransactions: React.FC = () => {
 
   const exportAllTransactions = () => {
     const content = `
-SECUREBANK - ADMINISTRATIVE REPORT
+ALPHABANK - ADMINISTRATIVE REPORT
 All System Transactions Export
 Generated: ${new Date().toLocaleString()}
 Administrator: System Export
@@ -102,7 +102,7 @@ Date: ${tx.createdAt ? new Date(tx.createdAt).toLocaleDateString() + ' ' + new D
 Type: ${tx.transactionType || 'N/A'}
 Direction: ${tx.transactionDirection || 'N/A'}
 Amount: KES ${tx.amount?.toLocaleString() || '0'}
-Account: ${tx.account?.accountNumber || 'N/A'} (${tx.account?.accountType || 'N/A'})
+Account: ${tx?.accountNumber || 'N/A'} (${tx?.accountType || 'N/A'})
 Status: ${tx.status || 'N/A'}
 Description: ${tx.description || 'No description'}
 Balance After: KES ${tx.balanceAfter?.toLocaleString() || 'N/A'}
@@ -145,7 +145,7 @@ ${'='.repeat(60)}
         <div className="flex gap-2">
           <button
             onClick={exportAllTransactions}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all flex items-center"
+            className="bg-emarald-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-all flex items-center"
           >
             <Download size={16} className="mr-2" />
             Export Report
@@ -163,7 +163,7 @@ ${'='.repeat(60)}
           <select
             value={filters.transactionType}
             onChange={(e) => setFilters({...filters, transactionType: e.target.value, page: 0})}
-            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emarald-500 focus:border-emarald-500"
           >
             <option value="">All Types</option>
             <option value="DEPOSIT">Deposit</option>
@@ -248,7 +248,7 @@ ${'='.repeat(60)}
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Account</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TransactionType</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
@@ -262,8 +262,8 @@ ${'='.repeat(60)}
                       {tx.referenceNumber || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {tx.account?.accountNumber ? `****${tx.account.accountNumber.slice(-4)}` : 'N/A'}
-                      <div className="text-xs text-gray-500">{tx.account?.accountType || 'N/A'}</div>
+                      {tx?.accountNumber ? `****${tx.accountNumber.slice(-4)}` : 'N/A'}
+         
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -274,13 +274,7 @@ ${'='.repeat(60)}
                         {tx.transactionType || 'N/A'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        tx.transactionDirection === 'CREDIT' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {tx.transactionDirection || 'N/A'}
-                      </span>
-                    </td>
+                 
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       KES {tx.amount?.toLocaleString() || '0'}
                     </td>
@@ -288,7 +282,7 @@ ${'='.repeat(60)}
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         tx.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                         tx.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
+                        'bg-green-100 text--800'
                       }`}>
                         {tx.status || 'N/A'}
                       </span>

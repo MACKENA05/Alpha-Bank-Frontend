@@ -181,18 +181,8 @@ ${'='.repeat(60)}
 
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold text-gray-800 flex items-center">
-          <Users size={32} className="mr-3 text-blue-600" />
           👥 User Management
         </h1>
-        <div className="flex gap-2">
-          <button 
-            onClick={exportUserList}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-all flex items-center"
-          >
-            <Download size={16} className="mr-2" />
-            Export Users
-          </button>
-        </div>
       </div>
 
       {/* Search and Filters */}

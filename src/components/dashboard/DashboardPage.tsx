@@ -26,11 +26,9 @@ interface RawTransactionData {
   date?: string;
   transferReference?: string;
   accountNumber?: string;
-  account?: {
-    accountNumber?: string;
-    accountType?: string;
+  accountType?: string;
   };
-}
+
 
 // Extended Account interface to include transaction count
 interface EnhancedAccount extends Account {
@@ -406,10 +404,9 @@ export const DashboardPage: React.FC = () => {
             balanceAfter: Number(tx.balanceAfter) || 0,
             createdAt: tx.createdAt || tx.date || new Date().toISOString(),
             transferReference: tx.transferReference,
-            account: {
-              accountNumber: tx.accountNumber || tx.account?.accountNumber || 'N/A',
-              accountType: tx.account?.accountType || 'CHECKING'
-            }
+            accountNumber: tx.accountNumber || tx?.accountNumber || 'N/A',
+            accountType: tx?.accountType || 'CHECKING'
+            
           }));
         };
 

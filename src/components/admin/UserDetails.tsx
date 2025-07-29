@@ -480,7 +480,6 @@ ${'='.repeat(60)}
                     <div className={`px-2 py-1 rounded text-xs font-semibold ${
                       account.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                     }`}>
-                      {account.isActive ? 'Active' : 'Inactive'}
                     </div>
                   </div>
                   <div className={`text-xl font-bold ${

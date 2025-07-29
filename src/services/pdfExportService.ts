@@ -134,7 +134,7 @@ export class PDFExportService {
     // Description on next line
     doc.setFontSize(7);
     doc.text(tx.description.substring(0, 50), 20, yPosition + 6);
-    doc.text(`Acc: ****${tx.account.accountNumber.slice(-4)}`, 120, yPosition + 6);
+    doc.text(`Acc: ****${tx.accountNumber.slice(-4)}`, 120, yPosition + 6);
     
     yPosition += 12;
     
@@ -228,8 +228,8 @@ export class PDFExportService {
     yPosition += 10;
     
     doc.setFontSize(10);
-    yPosition = this.addReceiptField(doc, 'Account Number:', `****${tx.account.accountNumber.slice(-4)}`, leftColumn, rightColumn, yPosition);
-    yPosition = this.addReceiptField(doc, 'Account Type:', tx.account.accountType, leftColumn, rightColumn, yPosition);
+    yPosition = this.addReceiptField(doc, 'Account Number:', `****${tx.accountNumber.slice(-4)}`, leftColumn, rightColumn, yPosition);
+    yPosition = this.addReceiptField(doc, 'Account Type:', tx.accountType, leftColumn, rightColumn, yPosition);
     yPosition = this.addReceiptField(doc, 'Balance After Transaction:', `KES ${tx.balanceAfter.toLocaleString()}`, leftColumn, rightColumn, yPosition);
   }
 

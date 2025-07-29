@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Download, Filter, Search, ArrowUpDown, PlusCircle, MinusCircle, Receipt, FileText, CreditCard } from 'lucide-react';
 import { transactionApi, accountApi } from '../../services/api';
@@ -13,7 +12,7 @@ export const TransactionHistory: React.FC = () => {
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [filters, setFilters] = useState({
-    accountNumber: '', // NEW: Filter by specific account
+    accountNumber: '', 
     transactionType: '',
     startDate: '',
     endDate: '',
@@ -40,7 +39,7 @@ export const TransactionHistory: React.FC = () => {
     }
   }, [filters, accounts]);
 
-  // NEW: Fetch user's accounts first
+  // Fetch user's accounts first
   const fetchAccounts = async () => {
     try {
       const response = await accountApi.getUserAccounts();
@@ -86,8 +85,8 @@ export const TransactionHistory: React.FC = () => {
         );
       }
 
-      // Enhanced mapping with account information
-      const mappedTransactions = filteredTransactions.map((tx: any) => {
+      // ✅ Fixed mapping to match your Transaction interface
+      const mappedTransactions: Transaction[] = filteredTransactions.map((tx: any) => {
         // Find the account this transaction belongs to
         const associatedAccount = accounts.find(acc => acc.accountNumber === tx.accountNumber);
         
@@ -95,17 +94,15 @@ export const TransactionHistory: React.FC = () => {
           id: tx.id,
           referenceNumber: tx.referenceNumber,
           amount: tx.amount,
-          transactionType: tx.transactionType.toUpperCase(),
-          transactionDirection: tx.transactionDirection,
+          transactionType: tx.transactionType.toUpperCase() as 'DEPOSIT' | 'WITHDRAWAL' | 'TRANSFER',
+          transactionDirection: tx.transactionDirection as 'CREDIT' | 'DEBIT',
           description: tx.description,
-          status: tx.status.toUpperCase(),
+          status: tx.status.toUpperCase() as 'COMPLETED' | 'PENDING' | 'FAILED',
           balanceAfter: tx.balanceAfter,
           createdAt: tx.createdAt,
           transferReference: tx.transferReference,
-          account: {
-            accountNumber: tx.accountNumber,
-            accountType: associatedAccount?.accountType || 'UNKNOWN'
-          }
+          accountNumber: tx.accountNumber, 
+          accountType: associatedAccount?.accountType || 'UNKNOWN' 
         };
       });
 
@@ -153,7 +150,7 @@ export const TransactionHistory: React.FC = () => {
     });
   };
 
-  // NEW: Get account type color
+  // Get account type color
   const getAccountTypeColor = (type: string) => {
     switch (type.toUpperCase()) {
       case 'SAVINGS':
@@ -167,7 +164,7 @@ export const TransactionHistory: React.FC = () => {
     }
   };
 
-  // NEW: Calculate summary by account
+  // ✅ Fixed getSummaryByAccount with null checks
   const getSummaryByAccount = () => {
     const summary: Record<string, {
       accountNumber: string;
@@ -179,11 +176,14 @@ export const TransactionHistory: React.FC = () => {
     }> = {};
 
     transactions.forEach(tx => {
-      const accNum = tx.account.accountNumber;
+      // ✅ Add null check for accountNumber
+      const accNum = tx.accountNumber;
+      if (!accNum) return; // Skip if no account number
+      
       if (!summary[accNum]) {
         summary[accNum] = {
           accountNumber: accNum,
-          accountType: tx.account.accountType,
+          accountType: tx.accountType || 'UNKNOWN', // ✅ Add fallback
           totalTransactions: 0,
           totalDeposits: 0,
           totalWithdrawals: 0,
@@ -251,7 +251,7 @@ export const TransactionHistory: React.FC = () => {
             />
           </div>
           
-          {/* NEW: Account Filter */}
+          {/* Account Filter */}
           <select
             value={filters.accountNumber}
             onChange={(e) => setFilters({...filters, accountNumber: e.target.value})}
@@ -339,14 +339,16 @@ export const TransactionHistory: React.FC = () => {
                     <p className="text-sm text-gray-600">{tx.referenceNumber}</p>
                     <p className="text-xs text-gray-500">{new Date(tx.createdAt).toLocaleString()}</p>
                     
-                    {/* Enhanced Account Display */}
+                    {/* ✅ Fixed Account Display with null checks */}
                     <div className="flex items-center mt-1">
                       <CreditCard size={12} className="mr-1 text-gray-400" />
                       <span className="text-xs text-gray-500 mr-2">
-                        ****{tx.account.accountNumber.slice(-4)}
+                        {/* ✅ Add null check for accountNumber */}
+                        ****{tx.accountNumber?.toString().slice(-4) || 'Unknown'}
                       </span>
-                      <span className={`px-2 py-0.5 text-xs rounded-full ${getAccountTypeColor(tx.account.accountType)}`}>
-                        {tx.account.accountType}
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${getAccountTypeColor(tx.accountType || 'UNKNOWN')}`}>
+                        {/* ✅ Add fallback for accountType */}
+                        {tx.accountType || 'UNKNOWN'}
                       </span>
                     </div>
                   </div>
@@ -362,7 +364,7 @@ export const TransactionHistory: React.FC = () => {
                   <span className={`px-2 py-1 text-xs rounded-full ${
                     tx.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                     tx.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
+                    'bg-green-100 text-green-800'
                   }`}>
                     {tx.status}
                   </span>
@@ -422,12 +424,16 @@ export const TransactionHistory: React.FC = () => {
               {/* Per Account Breakdown */}
               <h4 className="text-lg font-semibold text-gray-800 mb-4">By Account</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* ✅ Fixed account summary display with null checks */}
                 {getSummaryByAccount().map(accountSummary => (
                   <div key={accountSummary.accountNumber} className="border border-gray-200 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center">
                         <CreditCard size={16} className="mr-2 text-gray-500" />
-                        <span className="font-medium">****{accountSummary.accountNumber.slice(-4)}</span>
+                        <span className="font-medium">
+                          {/* ✅ Add null check */}
+                          ****{accountSummary.accountNumber?.toString().slice(-4) || 'Unknown'}
+                        </span>
                       </div>
                       <span className={`px-2 py-1 text-xs rounded-full ${getAccountTypeColor(accountSummary.accountType)}`}>
                         {accountSummary.accountType}
@@ -455,20 +461,6 @@ export const TransactionHistory: React.FC = () => {
               <div className="bg-blue-50 p-4 rounded-lg">
                 <p className="text-2xl font-bold text-blue-700">{transactions.length}</p>
                 <p className="text-sm text-gray-600">Total Transactions</p>
-              </div>
-              <div className="bg-green-50 p-4 rounded-lg">
-                <p className="text-2xl font-bold text-green-700">
-                  KES {transactions.filter(tx => tx.transactionDirection === 'CREDIT')
-                    .reduce((sum, tx) => sum + tx.amount, 0).toLocaleString()}
-                </p>
-                <p className="text-sm text-gray-600">Total Credits</p>
-              </div>
-              <div className="bg-red-50 p-4 rounded-lg">
-                <p className="text-2xl font-bold text-red-700">
-                  KES {transactions.filter(tx => tx.transactionDirection === 'DEBIT')
-                    .reduce((sum, tx) => sum + tx.amount, 0).toLocaleString()}
-                </p>
-                <p className="text-sm text-gray-600">Total Debits</p>
               </div>
             </div>
           )}

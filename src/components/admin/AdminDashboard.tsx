@@ -32,7 +32,7 @@ export const AdminDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchAdminDashboardData();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []); 
 
   const processUserData = (response: any) => {
     let users = [];
@@ -50,7 +50,7 @@ export const AdminDashboard: React.FC = () => {
       totalUsers = response.totalUsers || response.total || users.length;
       pendingVerifications = response.pendingVerifications || 0;
     } else if (response?.content && Array.isArray(response.content)) {
-      // Spring Boot pagination format
+   
       users = response.content;
       totalUsers = response.totalElements || users.length;
       pendingVerifications = 0;
@@ -273,7 +273,7 @@ export const AdminDashboard: React.FC = () => {
             <Shield size={40} className="text-gray-600" />
             <div>
               <h1 className="text-3xl font-bold text-gray-800">System Administration</h1>
-              <p className="text-gray-600">Welcome back, Administrator {user?.firstName}</p>
+              <p className="text-gray-600">Welcome back, Admin {user?.firstName}</p>
             </div>
           </div>
         </div>
@@ -337,21 +337,6 @@ export const AdminDashboard: React.FC = () => {
               <Shield size={48} className="text-gray-300" />
             </div>
           </div>
-          
-          <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white p-6 rounded-xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-amber-200 text-sm uppercase tracking-wide">
-                  Pending Actions
-                </p>
-                <p className="text-3xl font-bold">{adminStats.pendingVerifications}</p>
-                <p className="text-amber-300 text-sm mt-1">
-                  Require admin review
-                </p>
-              </div>
-              <UserCheck size={48} className="text-amber-300" />
-            </div>
-          </div>
         </div>
       )}
 
@@ -381,7 +366,7 @@ export const AdminDashboard: React.FC = () => {
                   <span className={`px-2 py-1 text-xs rounded-full font-medium ${
                     activity.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
                     activity.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
+                    'bg-green-100 text-green-800'
                   }`}>
                     {activity.status}
                   </span>
@@ -412,7 +397,7 @@ export const AdminDashboard: React.FC = () => {
                     <span className={`px-3 py-1 text-xs rounded-full font-medium ${
                       tx.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-800' :
                       tx.status === 'PENDING' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
+                      'bg-green-100 text-green-800'
                     }`}>
                       {tx.status}
                     </span>
@@ -420,7 +405,7 @@ export const AdminDashboard: React.FC = () => {
                   <p className="text-sm text-gray-600 font-mono">{tx.referenceNumber}</p>
                   <div className="flex justify-between items-center mt-2">
                     <p className="text-xs text-gray-500">
-                      Account: ****{tx.account?.accountNumber?.slice(-4)} | 
+                      Account: ****{tx?.accountNumber?.slice(-4)} | 
                       {new Date(tx.createdAt).toLocaleString()}
                     </p>
                     <p className={`font-bold text-lg font-mono ${
