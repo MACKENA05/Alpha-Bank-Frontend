@@ -189,13 +189,7 @@ REACT_APP_ENVIRONMENT=development
 
 ---
 
-## Testing
 
-Run tests with:
-
-```bash
-npm test
-```
 
 ---
 

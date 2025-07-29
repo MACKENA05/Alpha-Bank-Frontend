@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Shield, Users, AlertCircle, TrendingUp, CreditCard, PlusCircle, RefreshCw, AlertTriangle, UserCheck, Database } from 'lucide-react';
+import { Shield, Users, TrendingUp, PlusCircle, UserCheck, Database } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { accountApi, transactionApi, userApi } from '../../services/api';
 import { MessageBar } from '../common/MessageBar';
@@ -14,45 +14,20 @@ interface AdminStats {
   pendingVerifications: number;
 }
 
-interface LoadingState {
-  dashboard: boolean;
-  refresh: boolean;
-}
-
-interface ErrorState {
-  stats: boolean;
-  transactions: boolean;
-  users: boolean;
-}
-
 export const AdminDashboard: React.FC = () => {
   const { user } = useAuth();
   const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
   const [systemTransactions, setSystemTransactions] = useState<any[]>([]);
   const [adminActivity, setAdminActivity] = useState<any[]>([]);
-  const [loading, setLoading] = useState<LoadingState>({ dashboard: true, refresh: false });
-  const [errors, setErrors] = useState<ErrorState>({
-    stats: false,
-    transactions: false,
-    users: false
-  });
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [messageType, setMessageType] = useState<'success' | 'error'>('success');
   const [showDepositModal, setShowDepositModal] = useState(false);
-  const [lastFetchTime, setLastFetchTime] = useState<Date | null>(null);
 
   const showMessage = (msg: string, type: 'success' | 'error') => {
     setMessage(msg);
     setMessageType(type);
     setTimeout(() => setMessage(''), 5000);
-  };
-
-  const resetErrors = () => {
-    setErrors({
-      stats: false,
-      transactions: false,
-      users: false
-    });
   };
 
   useEffect(() => {
@@ -152,14 +127,8 @@ export const AdminDashboard: React.FC = () => {
     };
   };
 
-  const fetchAdminDashboardData = async (isRefresh: boolean = false) => {
-    if (isRefresh) {
-      setLoading(prev => ({ ...prev, refresh: true }));
-    } else {
-      setLoading({ dashboard: true, refresh: false });
-    }
-    
-    resetErrors();
+  const fetchAdminDashboardData = async () => {
+    setLoading(true);
     
     try {
       let adminStatsData: AdminStats = {
@@ -174,25 +143,13 @@ export const AdminDashboard: React.FC = () => {
       try {
         const balanceResponse = await accountApi.getTotalSystemBalance();
         
-        console.log('Balance API Response:', balanceResponse); 
-        
-      
         if (balanceResponse) {
-    
           const responseData = balanceResponse.data || balanceResponse;
-          
-          adminStatsData.totalSystemBalance = responseData.totalSystemBalance || 0;
-  
-          adminStatsData.totalAdminAccounts = responseData.totalActiveAccounts || 0;
-          
-          console.log('Extracted balance:', adminStatsData.totalSystemBalance);
-          console.log('Extracted admin accounts:', adminStatsData.totalAdminAccounts);
-        } else {
-          throw new Error('No response received from balance API');
+          adminStatsData.totalSystemBalance = responseData.totalBalance.totalSystemBalance || 0;
+          adminStatsData.totalAdminAccounts = responseData.totalBalance.totalActiveAccounts || 0;
         }
       } catch (error) {
         console.error('Balance fetch error:', error);
-        setErrors(prev => ({ ...prev, stats: true }));
         adminStatsData.totalSystemBalance = 0;
         adminStatsData.totalAdminAccounts = 0;
       }
@@ -228,12 +185,9 @@ export const AdminDashboard: React.FC = () => {
           adminStatsData.totalSystemUsers = userData.totalSystemUsers;
           adminStatsData.totalAdminUsers = userData.totalAdminUsers;
           adminStatsData.pendingVerifications = userData.pendingVerifications;
-        } else {
-          throw new Error('No user response received from any API attempt');
         }
         
       } catch (error) {
-        setErrors(prev => ({ ...prev, users: true }));
         adminStatsData.totalSystemUsers = 0;
         adminStatsData.totalAdminUsers = 0;
         adminStatsData.pendingVerifications = 0;
@@ -279,40 +233,20 @@ export const AdminDashboard: React.FC = () => {
         setAdminActivity(recentActivity);
         
       } catch (error) {
-        setErrors(prev => ({ ...prev, transactions: true }));
+        console.error('Transaction fetch error:', error);
       }
 
       // Update state with final stats
       setAdminStats(adminStatsData);
-      setLastFetchTime(new Date());
-
-      // Show appropriate message
-      const errorCount = Object.values(errors).filter(Boolean).length;
-      if (errorCount === 0) {
-        if (isRefresh) {
-          showMessage('Admin dashboard refreshed successfully!', 'success');
-        }
-      } else {
-        showMessage(`Partial admin data loaded. ${errorCount} service(s) may be experiencing issues.`, 'error');
-      }
 
     } catch (error: any) {
-      showMessage('Critical error loading admin dashboard: ' + (error.message || 'Unknown error'), 'error');
-      setErrors({
-        stats: true,
-        transactions: true,
-        users: true
-      });
+      console.error('Critical error loading admin dashboard:', error);
     } finally {
-      setLoading({ dashboard: false, refresh: false });
+      setLoading(false);
     }
   };
 
-  const handleRetry = async () => {
-    await fetchAdminDashboardData(true);
-  };
-
-  if (loading.dashboard) {
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-full bg-gray-50">
         <div className="text-center">
@@ -344,19 +278,6 @@ export const AdminDashboard: React.FC = () => {
           </div>
         </div>
         <div className="flex gap-3 items-center">
-          {lastFetchTime && (
-            <span className="text-xs text-gray-500 bg-white px-3 py-1 rounded-full">
-              Updated: {lastFetchTime.toLocaleTimeString()}
-            </span>
-          )}
-          <button 
-            onClick={handleRetry}
-            disabled={loading.refresh}
-            className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-all flex items-center disabled:opacity-50 shadow-sm"
-          >
-            <RefreshCw size={16} className={`mr-2 ${loading.refresh ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
           <button 
             onClick={() => setShowDepositModal(true)}
             className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-all flex items-center shadow-sm"
@@ -367,16 +288,14 @@ export const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
-
       {/* Admin System Statistics Cards */}
       {adminStats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className={`bg-gradient-to-r from-gray-600 to-gray-700 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.stats ? 'opacity-50' : ''}`}>
+          <div className="bg-gradient-to-r from-gray-600 to-gray-700 text-white p-6 rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-200 text-sm uppercase tracking-wide flex items-center">
+                <p className="text-gray-200 text-sm uppercase tracking-wide">
                   System Balance
-                  {errors.stats && <AlertCircle size={12} className="ml-1" />}
                 </p>
                 <p className="text-3xl font-bold">
                   KES {adminStats.totalSystemBalance.toLocaleString()}
@@ -389,12 +308,11 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
           
-          <div className={`bg-gradient-to-r from-emerald-600 to-emerald-700 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.users ? 'opacity-50' : ''}`}>
+          <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white p-6 rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-emerald-200 text-sm uppercase tracking-wide flex items-center">
+                <p className="text-emerald-200 text-sm uppercase tracking-wide">
                   System Users
-                  {errors.users && <AlertCircle size={12} className="ml-1" />}
                 </p>
                 <p className="text-3xl font-bold">{adminStats.totalSystemUsers}</p>
                 <p className="text-emerald-300 text-sm mt-1">
@@ -405,12 +323,11 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
           
-          <div className={`bg-gradient-to-r from-gray-700 to-gray-800 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.users ? 'opacity-50' : ''}`}>
+          <div className="bg-gradient-to-r from-gray-700 to-gray-800 text-white p-6 rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-200 text-sm uppercase tracking-wide flex items-center">
+                <p className="text-gray-200 text-sm uppercase tracking-wide">
                   Administrators
-                  {errors.users && <AlertCircle size={12} className="ml-1" />}
                 </p>
                 <p className="text-3xl font-bold">{adminStats.totalAdminUsers}</p>
                 <p className="text-gray-300 text-sm mt-1">
@@ -421,12 +338,11 @@ export const AdminDashboard: React.FC = () => {
             </div>
           </div>
           
-          <div className={`bg-gradient-to-r from-amber-600 to-amber-700 text-white p-6 rounded-xl shadow-lg transition-opacity ${errors.users ? 'opacity-50' : ''}`}>
+          <div className="bg-gradient-to-r from-amber-600 to-amber-700 text-white p-6 rounded-xl shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-amber-200 text-sm uppercase tracking-wide flex items-center">
+                <p className="text-amber-200 text-sm uppercase tracking-wide">
                   Pending Actions
-                  {errors.users && <AlertCircle size={12} className="ml-1" />}
                 </p>
                 <p className="text-3xl font-bold">{adminStats.pendingVerifications}</p>
                 <p className="text-amber-300 text-sm mt-1">
@@ -441,13 +357,12 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Admin Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className={`bg-white p-6 rounded-xl shadow-lg transition-opacity ${errors.transactions ? 'opacity-50' : ''}`}>
+        <div className="bg-white p-6 rounded-xl shadow-lg">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-xl font-bold text-gray-800">Recent System Activity</h3>
-            {errors.transactions && <AlertCircle size={20} className="text-red-500" />}
           </div>
           <div className="space-y-4 max-h-80 overflow-y-auto">
-            {adminActivity.length > 0 && !errors.transactions ? (
+            {adminActivity.length > 0 ? (
               adminActivity.map((activity, index) => (
                 <div key={activity.id || index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                   <div className="flex items-center flex-1">
@@ -475,7 +390,7 @@ export const AdminDashboard: React.FC = () => {
             ) : (
               <div className="text-center py-8 text-gray-500">
                 <TrendingUp size={48} className="mx-auto mb-4 text-gray-300" />
-                <p>{errors.transactions ? 'Activity monitoring unavailable' : 'No recent activity'}</p>
+                <p>No recent activity</p>
               </div>
             )}
           </div>
@@ -483,13 +398,12 @@ export const AdminDashboard: React.FC = () => {
       </div>
 
       {/* High-Value Transactions Monitoring */}
-      <div className={`bg-white p-6 rounded-xl shadow-lg transition-opacity ${errors.transactions ? 'opacity-50' : ''}`}>
+      <div className="bg-white p-6 rounded-xl shadow-lg">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-gray-800">High-Value Transaction Monitoring</h3>
-          {errors.transactions && <AlertCircle size={20} className="text-red-500" />}
         </div>
         <div className="space-y-4 max-h-80 overflow-y-auto">
-          {systemTransactions.length > 0 && !errors.transactions ? (
+          {systemTransactions.length > 0 ? (
             systemTransactions.map((tx, index) => (
               <div key={tx.id || index} className="flex justify-between items-center p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors border-l-4 border-gray-400">
                 <div className="flex-1">
@@ -515,26 +429,20 @@ export const AdminDashboard: React.FC = () => {
                       {tx.transactionDirection === 'CREDIT' ? '+' : '-'}KES {Number(tx.amount || 0).toLocaleString()}
                     </p>
                   </div>
-                  {tx.flagged && (
-                    <div className="mt-2 flex items-center text-red-600">
-                      <AlertTriangle size={16} className="mr-1" />
-                      <span className="text-xs font-medium">Flagged for Review</span>
-                    </div>
-                  )}
                 </div>
               </div>
             ))
           ) : (
             <div className="text-center py-8 text-gray-500">
               <Shield size={48} className="mx-auto mb-4 text-gray-300" />
-              <p>{errors.transactions ? 'Transaction monitoring unavailable' : 'No high-value transactions to monitor'}</p>
+              <p>No high-value transactions to monitor</p>
             </div>
           )}
         </div>
       </div>
 
       {/* System Analytics Chart */}
-      {systemTransactions.length > 0 && !errors.transactions && (
+      {systemTransactions.length > 0 && (
         <div className="bg-white p-6 rounded-xl shadow-lg">
           <h3 className="text-xl font-bold text-gray-800 mb-4">System Transaction Analytics</h3>
           <ResponsiveContainer width="100%" height={300}>
@@ -566,7 +474,7 @@ export const AdminDashboard: React.FC = () => {
         isOpen={showDepositModal}
         onClose={() => setShowDepositModal(false)}
         onSuccess={() => {
-          fetchAdminDashboardData(true);
+          fetchAdminDashboardData();
           showMessage('System deposit completed successfully!', 'success');
         }}
         showMessage={showMessage}
