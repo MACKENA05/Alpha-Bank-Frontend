@@ -1,4 +1,3 @@
-// src/components/TransactionHistory.tsx - Enhanced for Multiple Accounts
 
 import React, { useState, useEffect } from 'react';
 import { Download, Filter, Search, ArrowUpDown, PlusCircle, MinusCircle, Receipt, FileText, CreditCard } from 'lucide-react';

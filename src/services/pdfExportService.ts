@@ -1,5 +1,3 @@
-// src/services/pdfExportService.ts
-
 import jsPDF from 'jspdf';
 import { Transaction } from '../services/types';
 
