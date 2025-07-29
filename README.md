@@ -1,46 +1,117 @@
-# Getting Started with Create React App
+# Banking App Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A modern, responsive banking application frontend built with React and TypeScript. This app provides user authentication, account management, transaction handling, and an admin panel for managing users and transactions.
 
-## Available Scripts
+---
 
-In the project directory, you can run:
+## Features
 
-### `npm start`
+- User authentication with login, registration, and protected routes
+- User dashboard with account overview, transaction trends, and recent transactions
+- Account management: view, filter, and create bank accounts
+- Transaction management: transfer money, withdraw, deposit (admin only), and view transaction history
+- Admin panel with dashboards, user management, and transaction oversight
+- Responsive UI built with Tailwind CSS and Headless UI components
+- PDF export and CSV parsing capabilities
+- Real-time notifications using react-hot-toast
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+---
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## Tech Stack
 
-### `npm test`
+- React 19 (beta)
+- TypeScript
+- React Router DOM for routing
+- Tailwind CSS for styling
+- Recharts for charts and data visualization
+- Lucide React for icons
+- react-hot-toast for notifications
+- jspdf and html2canvas for PDF export
+- papaparse for CSV parsing
+- Jest and React Testing Library for testing
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+---
 
-### `npm run build`
+## Installation
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+1. Clone the repository:
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+   ```bash
+   git clone <repository-url>
+   cd alpha-bank-frontend
+   ```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+2. Install dependencies:
 
-### `npm run eject`
+   ```bash
+   npm install
+   ```
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+3. Start the development server:
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+   ```bash
+   npm start
+   ```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+4. Open your browser and navigate to `http://localhost:3000`
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+---
 
-## Learn More
+## Folder Structure
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- `src/` - Main source code
+  - `components/` - React components organized by feature (auth, accounts, admin, dashboard, transactions, profile, layout, common)
+  - `context/` - React context providers (e.g., AuthContext)
+  - `services/` - API service modules and utility functions
+  - `styles/` - Global styles (if any)
+  - `utils/` - Utility functions
+- `public/` - Static assets and HTML template
+- `tests/` or alongside components - Test files (e.g., `App.test.tsx`)
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+---
+
+## Usage
+
+- **Authentication:** Users can register and log in. Protected routes ensure only authenticated users access sensitive pages.
+- **Dashboard:** Displays account balances, transaction trends, quick stats, and recent transactions.
+- **Accounts:** View all bank accounts, filter by type or status, toggle balance visibility, and create new accounts.
+- **Transactions:** Transfer money, withdraw funds, and view transaction history.
+- **Admin Panel:** Admin users can access dashboards, view all transactions, manage users, and see detailed user information.
+
+---
+
+## Testing
+
+Run tests with:
+
+```bash
+npm test
+```
+
+---
+
+## Deployment
+
+The app is configured for deployment on Render.com. The homepage URL is set to:
+
+```
+https://your-app-name.onrender.com
+```
+
+Build the app for production with:
+
+```bash
+npm run build
+```
+
+---
+
+## Contributing
+
+Contributions are welcome! Please fork the repository and submit pull requests for improvements or bug fixes.
+
+---
+
+## License
+
+This project is licensed under the MIT License.

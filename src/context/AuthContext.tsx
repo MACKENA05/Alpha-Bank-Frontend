@@ -74,9 +74,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('authToken', response.token);
       setUser(response.user);
       setIsAuthenticated(true);
-      console.log('Login success, user set'); 
+      console.log('=====Login success, user set============'); 
     } catch (error: any) {
-      console.log('AuthContext caught error:', error); 
+      console.log('============AuthContext caught error:============', error); 
       throw error; 
     }
   };
