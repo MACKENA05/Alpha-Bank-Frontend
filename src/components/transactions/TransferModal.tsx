@@ -79,7 +79,6 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     }));
   };
 
-  // MODIFIED: This function now shows confirmation instead of directly calling API
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const pin = formData.transactionPin.join('');
@@ -110,11 +109,11 @@ export const TransferModal: React.FC<TransferModalProps> = ({
       return;
     }
 
-    // CHANGED: Show confirmation popup instead of directly calling API
+ 
     setIsConfirmOpen(true);
   };
 
-  // NEW: Handle the actual transfer after confirmation
+  // Handle the actual transfer after confirmation
   const handleConfirmTransfer = async () => {
     const pin = formData.transactionPin.join('');
     const senderAccount = accounts.find(acc => 
@@ -200,7 +199,7 @@ export const TransferModal: React.FC<TransferModalProps> = ({
     );
   };
 
-  // NEW: Get sender account details for confirmation popup
+  // Get sender account details for confirmation popup
   const getSenderAccount = () => {
     return accounts.find(acc => 
       String(acc.accountNumber).trim() === String(formData.senderAccountNumber).trim()
